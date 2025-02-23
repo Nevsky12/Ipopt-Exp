@@ -111,7 +111,7 @@ More details on using coinbrew can be found at the instructions on
 Some precompiled binaries of Ipopt are also available:
 
 - **[Ipopt releases page](https://github.com/coin-or/Ipopt/releases)** provides libraries and executables for Windows
-- **[JuliaBinaryWrappers](https://github.com/JuliaBinaryWrappers/Ipopt_jll.jl/releases)** provides libraries and executables; [libHSL](https://licences.stfc.ac.uk/products/Software/HSL/LibHSL) provides prebuild HSL libraries
+- **[JuliaBinaryWrappers](https://github.com/JuliaBinaryWrappers/Ipopt_jll.jl/releases)** provides libraries and executables (see also [notes on BLAS/LAPACK](https://github.com/jump-dev/Ipopt.jl#blas-and-lapack); [libHSL](https://licences.stfc.ac.uk/products/Software/HSL/LibHSL) provides prebuild HSL libraries
 - **[IDEAS](https://github.com/IDAES/idaes-ext/releases)** provides executables; these executables include HSL solvers
 
 Getting Help
