@@ -265,6 +265,7 @@ bool PardisoMKLSolverInterface::InitializeImpl(
 
    // MKL 2025.0.1 does not work correctly with IPARM_[20] = 3 and IPARM_[7] > 0
    // workaround: change to IPARM_[20] = 1 (the default)
+   // MKL 2025.1.0 has this fixed
    // https://github.com/coin-or/Ipopt/issues/799
    // https://community.intel.com/t5/Intel-oneAPI-Math-Kernel-Library/Pardiso-bunch-kaufman-pivoting-option-3-different-in-MKL-2025-0/m-p/1648273
 #ifndef IPOPT_NO_MKLVERSIONCHECK
@@ -272,7 +273,7 @@ bool PardisoMKLSolverInterface::InitializeImpl(
    {
       MKLVersion mklver;
       MKL_Get_Version(&mklver);
-      if( mklver.MajorVersion >= 2025 )
+      if( mklver.MajorVersion == 2025 && mklver.UpdateVersion == 0 )
       {
          IPARM_[20] = 1;
          Jnlst().Printf(J_DETAILED, J_LINEAR_ALGEBRA,

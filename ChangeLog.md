@@ -7,6 +7,11 @@ More detailed information about incremental changes can be found in the
 
 ## 3.14
 
+### 3.14.18 (2025-xx-yy)
+
+- Restricted workaround for using Pardiso to Intel MKL 2025.0.x.
+  Intel MKL 2025.1.0 has the corresponding issue fixed. [#799]
+
 ### 3.14.17 (2024-12-14)
 
 - Added `Ipopt::RegisterInterruptHandler()` and `Ipopt::UnregisterInterruptHandler()`
