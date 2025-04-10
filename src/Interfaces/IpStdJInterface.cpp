@@ -665,7 +665,7 @@ void Jipopt::finalize_solution(
       env->SetNumberArrayRegion(mult_gj, 0, m, const_cast<Number*>(lambda));
    }
 
-   env->GetNumberArrayRegion(fj, 0, 1, &obj_value);
+   env->SetNumberArrayRegion(fj, 0, 1, &obj_value);
 }
 
 /* Intermediate Callback method for the user. */

@@ -11,6 +11,9 @@ More detailed information about incremental changes can be found in the
 
 - Restricted workaround for using Pardiso to Intel MKL 2025.0.x.
   Intel MKL 2025.1.0 has the corresponding issue fixed. [#799]
+- Fixed that Jipopt::finalize_solution did not store final objective value correctly
+  [#820, by Kevin Kofler]. Instead, the value of the last iterate evaluation was returned,
+  which was often the same.
 
 ### 3.14.17 (2024-12-14)
 
