@@ -23,6 +23,8 @@ More detailed information about incremental changes can be found in the
   when the fallback mechanism of BacktrackingLinearSearch has been activated [#834].
   If this happened in the first iteration, it lead to the use of uninitialized values.
 - Added missing return if symbolic factorization with MA57 (ma57ad, ma57as) failed [#834].
+- Fixed application of scaling when computing violations of inequality constraints in
+  `TNLP::get_curr_violations()`. Added `OrigIpoptNLP::d_space()`.
 
 ### 3.14.17 (2024-12-14)
 
