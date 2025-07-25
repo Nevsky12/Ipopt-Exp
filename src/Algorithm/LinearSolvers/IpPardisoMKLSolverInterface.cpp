@@ -47,8 +47,7 @@ extern "C"
       const ipindex*   MSGLVL,
       ipnumber*        B,
       ipnumber*        X,
-      ipindex*         E,
-      ipnumber*        DPARM
+      ipindex*         E
    );
 
 #ifndef IPOPT_NO_MKLVERSIONCHECK
@@ -90,7 +89,6 @@ PardisoMKLSolverInterface::PardisoMKLSolverInterface()
 
    PT_ = new void* [64];
    IPARM_ = new Index[64];
-   DPARM_ = new Number[64];
 }
 
 PardisoMKLSolverInterface::~PardisoMKLSolverInterface()
@@ -108,13 +106,12 @@ PardisoMKLSolverInterface::~PardisoMKLSolverInterface()
       Index idmy = 0;
       Number ddmy = 0.;
       IPOPT_LAPACK_FUNC(pardiso, PARDISO)(PT_, &MAXFCT_, &MNUM_, &MTYPE_, &PHASE, &N, &ddmy, &idmy, &idmy, &idmy, &NRHS, IPARM_, &MSGLVL_, &ddmy,
-                                          &ddmy, &ERROR, DPARM_);
+                                          &ddmy, &ERROR);
       DBG_ASSERT(ERROR == 0);
    }
 
    delete[] PT_;
    delete[] IPARM_;
-   delete[] DPARM_;
    delete[] a_;
 }
 
@@ -225,7 +222,7 @@ bool PardisoMKLSolverInterface::InitializeImpl(
       Index idmy = 0;
       Number ddmy = 0.;
       IPOPT_LAPACK_FUNC(pardiso, PARDISO)(PT_, &MAXFCT_, &MNUM_, &MTYPE_, &PHASE, &N, &ddmy, &idmy, &idmy, &idmy, &NRHS, IPARM_, &MSGLVL_, &ddmy,
-                                          &ddmy, &ERROR, DPARM_);
+                                          &ddmy, &ERROR);
       DBG_ASSERT(ERROR == 0);
    }
 
@@ -527,7 +524,7 @@ ESymSolverStatus PardisoMKLSolverInterface::Factorization(
                         "Calling Pardiso for symbolic factorization (PHASE=%d).\n", PHASE);
          IPOPT_LAPACK_FUNC(pardiso, PARDISO)(PT_, &MAXFCT_, &MNUM_, &MTYPE_,
                                              &PHASE, &N, a_, ia, ja, &PERM,
-                                             &NRHS, IPARM_, &MSGLVL_, &B, &X, &ERROR, DPARM_);
+                                             &NRHS, IPARM_, &MSGLVL_, &B, &X, &ERROR);
          if( HaveIpData() )
          {
             IpData().TimingStats().LinearSystemSymbolicFactorization().End();
@@ -581,7 +578,7 @@ ESymSolverStatus PardisoMKLSolverInterface::Factorization(
 
       IPOPT_LAPACK_FUNC(pardiso, PARDISO)(PT_, &MAXFCT_, &MNUM_, &MTYPE_,
                                           &PHASE, &N, a_, ia, ja, &PERM,
-                                          &NRHS, IPARM_, &MSGLVL_, &B, &X, &ERROR, DPARM_);
+                                          &NRHS, IPARM_, &MSGLVL_, &B, &X, &ERROR);
       if( HaveIpData() )
       {
          IpData().TimingStats().LinearSystemFactorization().End();
@@ -721,21 +718,7 @@ ESymSolverStatus PardisoMKLSolverInterface::Solve(
       rhs_vals[i] = ORIG_RHS[i];
    }
    IPOPT_LAPACK_FUNC(pardiso, PARDISO)(PT_, &MAXFCT_, &MNUM_, &MTYPE_, &PHASE, &N, a_, ia, ja, &PERM, &NRHS, IPARM_, &MSGLVL_, rhs_vals, X,
-                                       &ERROR, DPARM_);
-
-   if( ERROR <= -100 && ERROR >= -102 )
-   {
-      Jnlst().Printf(J_WARNING, J_LINEAR_ALGEBRA,
-                     "Iterative solver in Pardiso did not converge (ERROR = %" IPOPT_INDEX_FORMAT ")\n", ERROR);
-      Jnlst().Printf(J_WARNING, J_LINEAR_ALGEBRA,
-                     "  Decreasing drop tolerances from DPARM_[4] = %e and DPARM_[5] = %e\n", DPARM_[4], DPARM_[5]);
-      PHASE = 23;
-      DPARM_[4] /= 2.0;
-      DPARM_[5] /= 2.0;
-      Jnlst().Printf(J_WARNING, J_LINEAR_ALGEBRA,
-                     "                               to DPARM_[4] = %e and DPARM_[5] = %e\n", DPARM_[4], DPARM_[5]);
-      ERROR = 0;
-   }
+                                       &ERROR);
 
    delete[] X;
    delete[] ORIG_RHS;

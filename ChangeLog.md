@@ -25,6 +25,8 @@ More detailed information about incremental changes can be found in the
 - Added missing return if symbolic factorization with MA57 (ma57ad, ma57as) failed [#834].
 - Fixed application of scaling when computing violations of inequality constraints in
   `TNLP::get_curr_violations()`. Added `OrigIpoptNLP::d_space()`.
+- Fixed signature of call to MKL's Pardiso: the DPARM argument does not exist in this
+  version of Pardiso.
 
 ### 3.14.17 (2024-12-14)
 
