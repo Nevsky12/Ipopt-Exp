@@ -7,7 +7,7 @@ More detailed information about incremental changes can be found in the
 
 ## 3.14
 
-### 3.14.18 (2025-xx-yy)
+### 3.14.18 (2025-07-28)
 
 - Restricted workaround for using Pardiso to Intel MKL 2025.0.x.
   Intel MKL 2025.1.0 has the corresponding issue fixed. [#799]
