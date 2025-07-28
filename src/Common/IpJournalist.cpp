@@ -524,8 +524,8 @@ void StreamJournal::PrintfImpl(
 
       if( n >= (int)sizeof(buffer_) )
       {
-         char* bigmsg = new char[n+1];
-         vsnprintf(bigmsg, (size_t) n+1, pformat, ap);
+         char* bigmsg = new char[n + 1];
+         vsnprintf(bigmsg, (size_t) n + 1, pformat, ap);
          bigmsg[n] = '\0';
          *os_ << bigmsg;
       }
@@ -533,7 +533,7 @@ void StreamJournal::PrintfImpl(
       {
          if( n < 0 )
          {
-            buffer_[sizeof(buffer_)-1] = '\0';
+            buffer_[sizeof(buffer_) -1] = '\0';
          }
          *os_ << buffer_;
       }

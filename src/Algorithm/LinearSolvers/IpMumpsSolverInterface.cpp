@@ -198,8 +198,7 @@ bool MumpsSolverInterface::InitializeImpl(
    options.GetNumericValue("mumps_pivtol", pivtol_, prefix);
    if( options.GetNumericValue("mumps_pivtolmax", pivtolmax_, prefix) )
    {
-      ASSERT_EXCEPTION(pivtolmax_ >= pivtol_, OPTION_INVALID, "Option \"mumps_pivtolmax\": This value must be between "
-                       "mumps_pivtol and 1.");
+      ASSERT_EXCEPTION(pivtolmax_ >= pivtol_, OPTION_INVALID, "Option \"mumps_pivtolmax\": This value must be between mumps_pivtol and 1.");
    }
    else
    {

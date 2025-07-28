@@ -16,7 +16,7 @@ class RegisteredTNLP: public TNLP
 {
 public:
    RegisteredTNLP()
-   : interrupted_(false)
+      : interrupted_(false)
    { }
 
    /** Initialize internal parameters.
