@@ -7,6 +7,11 @@ More detailed information about incremental changes can be found in the
 
 ## 3.14
 
+### 3.14.19 (2025-07-30)
+
+- Fixed call to `getenv_s` on Windows, introduced with 3.14.17.
+  This invalid use of this call made the Pardiso interfaces unusable on Windows.
+
 ### 3.14.18 (2025-07-28)
 
 - Restricted workaround for using Pardiso to Intel MKL 2025.0.x.

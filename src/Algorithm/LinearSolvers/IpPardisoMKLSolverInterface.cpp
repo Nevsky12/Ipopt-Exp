@@ -391,7 +391,9 @@ void write_iajaa_matrix(
 )
 {
 #ifdef IPOPT_HAS_GETENV_S
-   if( getenv_s(NULL, NULL, 0, "IPOPT_WRITE_MAT") == 0 )
+   size_t required_size;
+   getenv_s(&required_size, NULL, 0, "IPOPT_WRITE_MAT");
+   if( required_size > 0 )
 #else
    if( getenv("IPOPT_WRITE_MAT") )
 #endif
@@ -404,7 +406,7 @@ void write_iajaa_matrix(
 
 #ifdef IPOPT_HAS_GETENV_S
       char mat_pref[32];
-      if( getenv_s(NULL, mat_pref, sizeof(mat_pref), "IPOPT_WRITE_PREFIX") != 0 )
+      if( getenv_s(&required_size, mat_pref, sizeof(mat_pref), "IPOPT_WRITE_PREFIX") != 0 )
       {
          memcpy(mat_pref, "mat-ipopt", 10);
       }
@@ -448,7 +450,8 @@ void write_iajaa_matrix(
 
    /* additional matrix format */
 #ifdef IPOPT_HAS_GETENV_S
-   if( getenv_s(NULL, NULL, 0, "IPOPT_WRITE_MAT_MTX") == 0 )
+   getenv_s(&required_size, NULL, 0, "IPOPT_WRITE_MAT_MTX");
+   if( required_size > 0 )
 #else
    if( getenv("IPOPT_WRITE_MAT_MTX") )
 #endif
@@ -461,7 +464,7 @@ void write_iajaa_matrix(
 
 #ifdef IPOPT_HAS_GETENV_S
       char mat_pref[32];
-      if( getenv_s(NULL, mat_pref, sizeof(mat_pref), "IPOPT_WRITE_PREFIX") != 0 )
+      if( getenv_s(&required_size, mat_pref, sizeof(mat_pref), "IPOPT_WRITE_PREFIX") != 0 )
       {
          memcpy(mat_pref, "mat-ipopt", 10);
       }
