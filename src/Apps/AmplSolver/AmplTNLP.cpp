@@ -1792,7 +1792,7 @@ AmplSuffixHandler::~AmplSuffixHandler()
       Index n = (Index) suffix_ids_.size();
       for( Index i = 0; i < n; i++ )
       {
-         free(suftab_[i].name);
+         delete[] suftab_[i].name;
          suftab_[i].name = NULL;
       }
    }
