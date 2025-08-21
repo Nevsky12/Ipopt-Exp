@@ -403,13 +403,13 @@ a purely CPU-parallel version of SPRAL (libs in `/path/to/spral/lib` and headers
 in `/path/to/spral/include`) on a GNU/Linux system, you should add the
 following flags to the `configure` command:
 \verbatim
---with-spral-lflags="-L/path/to/spral/lib -lspral -lgfortran -lhwloc -lm -lcoinmetis -lopenblas -lstdc++ -fopenmp"
+--with-spral-lflags="-L/path/to/spral/lib -lspral -lgfortran -lhwloc -lm -lmetis -lopenblas -lstdc++ -fopenmp"
 --with-spral-cflags="-I/path/to/spral/include"
 \endverbatim
 For a CPU and graphics processing unit- (GPU-) parallel version of SPRAL,
 the following flags should be used, instead:
 \verbatim
---with-spral-lflags="-L/path/to/spral/lib -lspral -lgfortran -lhwloc -lm -lcoinmetis -lopenblas -lstdc++ -fopenmp -lcudadevrt -lcudart -lcuda -lcublas"
+--with-spral-lflags="-L/path/to/spral/lib -lspral -lgfortran -lhwloc -lm -lmetis -lopenblas -lstdc++ -fopenmp -lcudadevrt -lcudart -lcuda -lcublas"
 --with-spral-cflags="-I/path/to/spral/include"
 \endverbatim
 The above assumes a SPRAL compilation using OpenBLAS libraries. For best
