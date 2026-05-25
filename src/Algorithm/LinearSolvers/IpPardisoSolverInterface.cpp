@@ -949,7 +949,7 @@ ESymSolverStatus PardisoSolverInterface::Solve(
    // Call Pardiso to do the solve for the given right-hand sides
    Index PHASE = 33;
    Index N = dim_;
-   Index PERM;   // This should not be accessed by Pardiso
+   Index PERM = 0;   // This should not be accessed by Pardiso
    Index NRHS = nrhs;
    Number* X = new Number[nrhs * dim_];
 
