@@ -44,6 +44,46 @@ void Check(bool condition, std::string_view message)
    }
 }
 
+void TestScaleDirectionAndMeasureResidual()
+{
+   std::array<Cxx::Number, 4> direction{{.5, -2., 0., 4.}};
+   constexpr std::array<Cxx::Number, 4> actual{{3., -5., 1., .25}};
+   constexpr std::array<Cxx::Number, 4> expected{{1., -1., -1., .5}};
+   const Cxx::Number reference_error =
+      Cxx::legacy_algorithm_canary_detail::RelativeInfinityError(
+         actual, expected);
+   const auto measured =
+      Cxx::legacy_algorithm_canary_detail::ScaleDirectionAndMeasureResidual(
+         direction, -.25, actual, expected);
+   constexpr std::array<Cxx::Number, 4> expected_direction{{
+      -.125, .5, 0., -1.
+   }};
+   Check(
+      measured.relative_error == reference_error,
+      "fused residual measurement changed the scalar reduction");
+   Check(
+      measured.direction_is_finite,
+      "finite fused direction scaling was rejected");
+   Check(
+      direction == expected_direction,
+      "fused residual measurement scaled the direction incorrectly");
+
+   std::array<Cxx::Number, 2> overflowing_direction{{
+      std::numeric_limits<Cxx::Number>::max(), 3.
+   }};
+   constexpr std::array<Cxx::Number, 2> zero_residual{{0., 0.}};
+   const auto overflow =
+      Cxx::legacy_algorithm_canary_detail::ScaleDirectionAndMeasureResidual(
+         overflowing_direction, 2., zero_residual, zero_residual);
+   Check(
+      !overflow.direction_is_finite,
+      "fused direction scaling did not reject overflow");
+   Check(
+      std::isinf(overflowing_direction[0]) &&
+         overflowing_direction[1] == 6.,
+      "fused direction scaling did not complete every output write");
+}
+
 enum class CandidateScenario
 {
    disabled,
@@ -114,7 +154,9 @@ public:
       }
 
       const Cxx::Index dimension = request.kkt.flat_dimension();
-      if( request.rhs.size() != dimension )
+      if( request.rhs.size() != dimension ||
+          (!request.direction_output.empty() &&
+           request.direction_output.size() != dimension) )
       {
          return std::unexpected(Cxx::EvaluationError{
             Cxx::EvaluationErrorCode::dimension_mismatch,
@@ -227,8 +269,8 @@ private:
       Cxx::Index                            kkt_applications = 0
    )
    {
-      return {
-         .direction = std::move(direction),
+      Cxx::CandidateFirstSolveResult result{
+         .direction = {},
          .accepted_regularization = request.state.regularization,
          .inertia = {
             .certainty = Cxx::CandidateFirstInertiaCertainty::exact,
@@ -242,8 +284,19 @@ private:
             .refinement_steps = 0,
             .quality_improvements = 0
          },
-         .converged = converged
+         .converged = converged,
+         .direction_written_to_request_output = false
       };
+      if( request.direction_output.empty() )
+      {
+         result.direction = std::move(direction);
+      }
+      else
+      {
+         std::ranges::copy(direction, request.direction_output.begin());
+         result.direction_written_to_request_output = true;
+      }
+      return result;
    }
 
    std::shared_ptr<CandidateBackendCounters> counters_;
@@ -585,6 +638,38 @@ void TestTreatment(
              : statistics.candidate_first_accepted) > progress_after_first_solve,
          "C++23 canary did not check a reoptimized solve");
    }
+   if( !start_with_restoration )
+   {
+      const Cxx::Index evaluations =
+         candidate_scenario == CandidateScenario::disabled
+         ? statistics.checked_solves
+         : statistics.candidate_first_requests;
+      Check(
+         statistics.evaluation_workspace_growth_requests +
+               statistics.evaluation_workspace_reuse_requests ==
+            evaluations,
+         "evaluation workspace accounting is inconsistent");
+      Check(
+         statistics.evaluation_workspace_growth_requests == 1,
+         "ordinary TNLP evaluation workspace grew more than once");
+      Check(
+         statistics.evaluation_workspace_reuse_requests > 0,
+         "ordinary TNLP evaluation workspace was not reused");
+      Check(
+         statistics.coordinate_kkt_constructions == (reoptimize ? 2 : 1),
+         "coordinate KKT cache did not follow the Initialize lifecycle");
+      Check(
+         statistics.coordinate_kkt_constructions +
+               statistics.coordinate_kkt_reuses ==
+            evaluations,
+         "coordinate KKT construction/reuse accounting is inconsistent");
+      Check(
+         statistics.coordinate_kkt_reuses > 0,
+         "coordinate KKT cache was not reused within an optimization");
+      Check(
+         statistics.matrix_snapshot_kkt_constructions == 0,
+         "ordinary TNLP solve unexpectedly constructed a matrix-snapshot KKT");
+   }
    if( candidate_scenario != CandidateScenario::disabled )
    {
       Check(
@@ -719,6 +804,15 @@ void TestTreatment(
       Check(tnlp->restoration_callbacks() > 0, "forced restoration did not run");
       if( Cxx::LegacyAlgorithmCanaryBuilder::restoration_factory_supported() )
       {
+         Check(
+            statistics.evaluation_workspace_growth_requests >= 2,
+            "main and restoration solvers did not own separate workspaces");
+         Check(
+            statistics.evaluation_workspace_reuse_requests > 0,
+            "restoration evaluation workspace was not reused");
+         Check(
+            statistics.matrix_snapshot_kkt_constructions > 0,
+            "restoration solve did not keep the matrix-snapshot KKT transient");
          if( candidate_scenario != CandidateScenario::disabled )
          {
             Check(
@@ -785,6 +879,7 @@ int main()
 {
    try
    {
+      TestScaleDirectionAndMeasureResidual();
       if( std::getenv("IPOPT_CXX23_PRINT_CANDIDATE_STATS") != nullptr )
       {
          std::cout << "fixed_treatment,scenario,restoration,reoptimize,requests,"

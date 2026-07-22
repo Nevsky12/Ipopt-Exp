@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-22",
+  "subject": "FGMRES integrated into PDFullSpaceSolver iterative refinement",
+  "source_revisions": {
+    "ipopt": "1726843e47159409d8df540a6ffbc9c9b27265bb",
+    "fatrop_research": "586a3713c3e3c0013d517563787a22a07a1838d2",
+    "worktrees": "dirty; the recorded implementation and harness changes are uncommitted"
+  },
+  "implementation": {
+    "initial_guess": "the direct PDFullSpaceSolver step already stored in res",
+    "operator_fgmres_kdelta": "K_delta",
+    "operator_fgmres_k": "unperturbed K",
+    "right_preconditioner": "the exact current tagged K_delta factorization",
+    "refactorization_inside_fgmres": false,
+    "residual": "complete eight-block primal-dual KKT residual",
+    "default_method": "iterative-refinement",
+    "cache_miss_policy": "reject the FGMRES preconditioner application"
+  },
+  "environment": {
+    "cpu": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+    "logical_cpu": 2,
+    "compiler": "g++ 13.3.0",
+    "ipopt_flags": "-O2 -g",
+    "benchmark_driver_flags": "-O3 -march=native -std=gnu++23",
+    "linear_solver": "MUMPS",
+    "openblas_threads": 1,
+    "nlp_scaling_method": "none",
+    "fixed_variable_treatment": "make_constraint",
+    "tolerance": 1e-8
+  },
+  "protocol": {
+    "ordering": "interleaved rotating A/B/C order",
+    "timed_region": "Ipopt OptimizeNLP call",
+    "natural_repetitions": 7,
+    "forced_cd_repetitions": 5,
+    "timing_statistic": "median",
+    "trajectory_capture": "every Ipopt intermediate_callback field serialized at precision 17",
+    "determinism": "one trajectory and one counter tuple per problem/policy/method across all repetitions"
+  },
+  "verification": {
+    "stable_release_make_test": "passed",
+    "cxx23_release_ctest": "16/16 passed",
+    "strict_compile": "IpPDFullSpaceSolver.cpp passed -Wall -Wextra -Wpedantic -Werror under C++11",
+    "cxx23_asan_ubsan_leak_ctest": "16/16 passed",
+    "stable_ipopt_asan_ubsan_focused_test": "passed",
+    "precompiled_client_abi_smoke": "passed after preserving PDFullSpaceSolver object layout",
+    "preconditioner_cache_misses_all_runs": 0
+  },
+  "results": [
+    {
+      "problem": "CAR2",
+      "dimensions": {"n": 5999, "m": 4996},
+      "perturbation_policy": "natural",
+      "modes": {
+        "iterative-refinement": {
+          "ipopt_ms": {"median": 1941.759473, "min": 1929.833746, "max": 1960.575745, "samples": [1960.575745, 1952.911374, 1944.475098, 1934.366626, 1929.833746, 1930.260217, 1941.759473]},
+          "refinement_ms": {"median": 234.399318695, "min": 234.005212784, "max": 240.165233612, "samples": [240.165233612, 236.809015274, 234.399318695, 234.07793045, 234.005212784, 234.079122543, 235.953092575]},
+          "ipopt_iterations": 236,
+          "objective": 2.66608466556,
+          "max_constraint_violation": 1.46860301697e-12,
+          "factorization_attempts": 236,
+          "refinement_phases": 236,
+          "refinement_iterations": 240,
+          "backsolves": 240,
+          "kkt_applications": 476,
+          "maximum_final_residual_ratio": 7.30407294763e-11
+        },
+        "fgmres-kdelta": {
+          "ipopt_ms": {"median": 2002.184311, "min": 1991.883674, "max": 2028.120488, "samples": [2008.094306, 2017.96779, 2002.184311, 2000.100414, 1996.733829, 1991.883674, 2028.120488]},
+          "refinement_ms": {"median": 289.907932281, "min": 288.10095787, "max": 295.945882797, "samples": [291.017770767, 292.06609726, 289.907932281, 289.018392563, 288.10095787, 289.427518845, 295.945882797]},
+          "ipopt_iterations": 236,
+          "objective": 2.66608466556,
+          "max_constraint_violation": 1.45972123278e-12,
+          "factorization_attempts": 236,
+          "refinement_phases": 236,
+          "refinement_iterations": 241,
+          "backsolves": 241,
+          "kkt_applications": 718,
+          "maximum_final_residual_ratio": 1.6408143134e-11
+        },
+        "fgmres-k": {
+          "ipopt_ms": {"median": 1998.568433, "min": 1988.074859, "max": 2029.813869, "samples": [2015.283977, 1991.023602, 2007.991581, 1993.920442, 1988.074859, 2029.813869, 1998.568433]},
+          "refinement_ms": {"median": 289.4551754, "min": 287.789344788, "max": 296.306371689, "samples": [291.563510895, 289.089679718, 292.085886002, 287.789344788, 288.360834122, 296.306371689, 289.4551754]},
+          "ipopt_iterations": 236,
+          "objective": 2.66608466556,
+          "max_constraint_violation": 1.45972123278e-12,
+          "factorization_attempts": 236,
+          "refinement_phases": 236,
+          "refinement_iterations": 241,
+          "backsolves": 241,
+          "kkt_applications": 718,
+          "maximum_final_residual_ratio": 1.6408143134e-11
+        }
+      }
+    },
+    {
+      "problem": "DTOC3_N5000",
+      "dimensions": {"n": 14999, "m": 9998},
+      "perturbation_policy": "natural",
+      "modes": {
+        "iterative-refinement": {
+          "ipopt_ms": {"median": 25.579618, "min": 24.917826, "max": 26.768135, "samples": [26.768135, 24.917826, 25.073437, 26.230253, 25.579618, 24.932108, 25.583371]},
+          "refinement_ms": {"median": 1.61099433899, "min": 1.56998634338, "max": 1.64914131165, "samples": [1.63888931274, 1.59692764282, 1.61099433899, 1.64914131165, 1.63197517395, 1.56998634338, 1.58405303955]},
+          "ipopt_iterations": 1,
+          "objective": 235.262481035,
+          "max_constraint_violation": 1.76811690289e-15,
+          "factorization_attempts": 1,
+          "refinement_phases": 1,
+          "refinement_iterations": 1,
+          "backsolves": 1,
+          "kkt_applications": 2,
+          "maximum_final_residual_ratio": 1.59978694349e-16
+        },
+        "fgmres-kdelta": {
+          "ipopt_ms": {"median": 25.286871, "min": 25.049172, "max": 25.743321, "samples": [25.286871, 25.743321, 25.201884, 25.049172, 25.194391, 25.573913, 25.53831]},
+          "refinement_ms": {"median": 1.81102752686, "min": 1.77407264709, "max": 1.90305709839, "samples": [1.81102752686, 1.90305709839, 1.77407264709, 1.78098678589, 1.80101394653, 1.82509422302, 1.81794166565]},
+          "ipopt_iterations": 1,
+          "objective": 235.262481035,
+          "max_constraint_violation": 1.76811690289e-15,
+          "factorization_attempts": 1,
+          "refinement_phases": 1,
+          "refinement_iterations": 1,
+          "backsolves": 1,
+          "kkt_applications": 3,
+          "maximum_final_residual_ratio": 1.59978694349e-16
+        },
+        "fgmres-k": {
+          "ipopt_ms": {"median": 25.32171, "min": 25.077724, "max": 25.853528, "samples": [25.466536, 25.397298, 25.32171, 25.853528, 25.094278, 25.243656, 25.077724]},
+          "refinement_ms": {"median": 1.79600715637, "min": 1.77693367004, "max": 1.85513496399, "samples": [1.81889533997, 1.85513496399, 1.79481506348, 1.79600715637, 1.81102752686, 1.78098678589, 1.77693367004]},
+          "ipopt_iterations": 1,
+          "objective": 235.262481035,
+          "max_constraint_violation": 1.76811690289e-15,
+          "factorization_attempts": 1,
+          "refinement_phases": 1,
+          "refinement_iterations": 1,
+          "backsolves": 1,
+          "kkt_applications": 3,
+          "maximum_final_residual_ratio": 1.59978694349e-16
+        }
+      }
+    },
+    {
+      "problem": "CAR2",
+      "dimensions": {"n": 5999, "m": 4996},
+      "perturbation_policy": "forced-cd",
+      "maximum_deltas": {
+        "iterative-refinement": [0.0262484328386, 0.0262484328386, 3.76060309309e-9, 3.76060309309e-9],
+        "fgmres-kdelta": [0.00449492455418, 0.00449492455418, 3.76060309309e-9, 3.76060309309e-9],
+        "fgmres-k": [0.01, 0.01, 3.76060309309e-9, 3.76060309309e-9]
+      },
+      "modes": {
+        "iterative-refinement": {
+          "ipopt_ms": {"median": 2493.219644, "min": 2466.586886, "max": 2514.498341, "samples": [2468.942986, 2514.498341, 2466.586886, 2493.219644, 2508.541558]},
+          "refinement_ms": {"median": 1070.82557678, "min": 1066.40863419, "max": 1083.05621147, "samples": [1068.11785698, 1082.10277557, 1066.40863419, 1070.82557678, 1083.05621147]},
+          "ipopt_iterations": 157,
+          "objective": 2.66608307031,
+          "max_constraint_violation": 1.6409096304e-13,
+          "factorization_attempts": 244,
+          "refinement_phases": 194,
+          "refinement_iterations": 1305,
+          "backsolves": 1305,
+          "kkt_applications": 1499,
+          "converged_refinements": 111,
+          "failed_refinements": 83,
+          "quality_improvements": 3,
+          "singularity_retries": 34,
+          "maximum_final_residual_ratio": 1.24806880001
+        },
+        "fgmres-kdelta": {
+          "ipopt_ms": {"median": 1670.809269, "min": 1660.441965, "max": 1676.428572, "samples": [1660.441965, 1676.428572, 1670.809269, 1664.593184, 1673.659157]},
+          "refinement_ms": {"median": 775.084972382, "min": 770.819425583, "max": 778.035879135, "samples": [770.819425583, 775.084972382, 777.232646942, 772.923707962, 778.035879135]},
+          "ipopt_iterations": 114,
+          "objective": 2.66608307031,
+          "max_constraint_violation": 1.61010094146e-13,
+          "factorization_attempts": 130,
+          "refinement_phases": 122,
+          "refinement_iterations": 726,
+          "backsolves": 726,
+          "kkt_applications": 1574,
+          "converged_refinements": 105,
+          "failed_refinements": 17,
+          "quality_improvements": 3,
+          "singularity_retries": 5,
+          "maximum_final_residual_ratio": 0.266201793164
+        },
+        "fgmres-k": {
+          "ipopt_ms": {"median": 1412.423722, "min": 1408.22195, "max": 1425.94555, "samples": [1412.423722, 1422.857676, 1425.94555, 1408.22195, 1410.354348]},
+          "refinement_ms": {"median": 664.770126343, "min": 663.109064102, "max": 672.696590424, "samples": [664.770126343, 672.391414642, 672.696590424, 663.603305817, 663.109064102]},
+          "ipopt_iterations": 96,
+          "objective": 2.66608466556,
+          "max_constraint_violation": 1.6409096304e-13,
+          "factorization_attempts": 104,
+          "refinement_phases": 102,
+          "refinement_iterations": 622,
+          "backsolves": 622,
+          "kkt_applications": 1346,
+          "converged_refinements": 89,
+          "failed_refinements": 13,
+          "quality_improvements": 3,
+          "singularity_retries": 3,
+          "maximum_final_residual_ratio": 0.000194061989411
+        }
+      }
+    },
+    {
+      "problem": "DTOC3_N5000",
+      "dimensions": {"n": 14999, "m": 9998},
+      "perturbation_policy": "forced-cd",
+      "maximum_deltas": [0, 0, 5.6234132519e-9, 5.6234132519e-9],
+      "modes": {
+        "iterative-refinement": {
+          "ipopt_ms": {"median": 33.274203, "min": 32.992735, "max": 34.748785, "samples": [33.18265, 33.274203, 34.748785, 33.593823, 32.992735]},
+          "refinement_ms": {"median": 3.26490402222, "min": 3.1578540802, "max": 3.32188606262, "samples": [3.19576263428, 3.1578540802, 3.32188606262, 3.26490402222, 3.31401824951]},
+          "ipopt_iterations": 2,
+          "objective": 235.262481033,
+          "max_constraint_violation": 3.52607483142e-14,
+          "factorization_attempts": 2,
+          "refinement_phases": 2,
+          "refinement_iterations": 2,
+          "backsolves": 2,
+          "kkt_applications": 4,
+          "maximum_final_residual_ratio": 1.61605455236e-14
+        },
+        "fgmres-kdelta": {
+          "ipopt_ms": {"median": 34.069763, "min": 33.832948, "max": 36.162164, "samples": [34.069763, 36.162164, 34.04581, 34.614187, 33.832948]},
+          "refinement_ms": {"median": 3.66711616516, "min": 3.57222557068, "max": 3.85499000549, "samples": [3.57222557068, 3.85499000549, 3.74102592468, 3.66711616516, 3.60417366028]},
+          "ipopt_iterations": 2,
+          "objective": 235.262481033,
+          "max_constraint_violation": 3.52607483142e-14,
+          "factorization_attempts": 2,
+          "refinement_phases": 2,
+          "refinement_iterations": 2,
+          "backsolves": 2,
+          "kkt_applications": 6,
+          "maximum_final_residual_ratio": 1.36594777011e-14
+        },
+        "fgmres-k": {
+          "ipopt_ms": {"median": 25.321089, "min": 25.176477, "max": 25.50064, "samples": [25.321089, 25.37722, 25.314671, 25.176477, 25.50064]},
+          "refinement_ms": {"median": 1.87993049622, "min": 1.78503990173, "max": 1.97601318359, "samples": [1.88302993774, 1.81412696838, 1.87993049622, 1.78503990173, 1.97601318359]},
+          "ipopt_iterations": 1,
+          "objective": 235.262481009,
+          "max_constraint_violation": 7.16159011434e-13,
+          "factorization_attempts": 1,
+          "refinement_phases": 1,
+          "refinement_iterations": 1,
+          "backsolves": 1,
+          "kkt_applications": 3,
+          "maximum_final_residual_ratio": 3.84206134982e-13
+        }
+      }
+    }
+  ],
+  "trajectory_comparison": [
+    {
+      "problem": "CAR2",
+      "policy": "natural",
+      "points": [237, 237, 237],
+      "fgmres_modes_exactly_equal": true,
+      "stock_vs_fgmres_discrete_path_equal": true,
+      "maximum_aligned_absolute_difference": {
+        "objective": 5.064783792363414e-8,
+        "primal_infeasibility": 5.0116595762261795e-8,
+        "dual_infeasibility": 2.7472630337310733e-8,
+        "direction_norm": 5.175044179850374e-7,
+        "barrier_parameter": 0,
+        "regularization": 0
+      }
+    },
+    {
+      "problem": "DTOC3_N5000",
+      "policy": "natural",
+      "points": [2, 2, 2],
+      "all_three_trajectories_exactly_equal": true
+    },
+    {
+      "problem": "CAR2",
+      "policy": "forced-cd",
+      "points": [158, 115, 97],
+      "order": ["iterative-refinement", "fgmres-kdelta", "fgmres-k"],
+      "note": "The operator choice changes the nonlinear path; timing differences are not isolated kernel speedups."
+    },
+    {
+      "problem": "DTOC3_N5000",
+      "policy": "forced-cd",
+      "points": [3, 3, 2],
+      "order": ["iterative-refinement", "fgmres-kdelta", "fgmres-k"],
+      "note": "K_delta follows the stock iteration count; unperturbed K terminates one iteration earlier."
+    }
+  ],
+  "relative_median_changes_percent": {
+    "CAR2_natural": {
+      "fgmres-kdelta": {"ipopt": 3.11186008567, "refinement": 23.6812179724},
+      "fgmres-k": {"ipopt": 2.92564350992, "refinement": 23.488061745}
+    },
+    "DTOC3_N5000_natural": {
+      "fgmres-kdelta": {"ipopt": -1.14445415096, "refinement": 12.4167529971},
+      "fgmres-k": {"ipopt": -1.00825586997, "refinement": 11.4843865619},
+      "interpretation": "Optimize-time ranges overlap; no total-time speedup claim."
+    },
+    "CAR2_forced_cd": {
+      "fgmres-kdelta": {"ipopt": -32.9858773967, "refinement": -27.6179996828},
+      "fgmres-k": {"ipopt": -43.3494066438, "refinement": -37.9198498095}
+    },
+    "DTOC3_N5000_forced_cd": {
+      "fgmres-kdelta": {"ipopt": 2.39092127917, "refinement": 12.3192639111},
+      "fgmres-k": {"ipopt": -23.9017415383, "refinement": -42.4200379728}
+    }
+  },
+  "conclusion": [
+    "On unperturbed systems FGMRES adds one full-KKT application per iteration and is not a general speed win.",
+    "When perturbations are active, K_delta/K_delta and K/K_delta are observably different algorithms and both can alter the Ipopt trajectory.",
+    "The K/K_delta mode reaches the unperturbed full-KKT residual and can avoid perturbation-driven outer iterations, but must remain opt-in because it changes the accepted direction semantics."
+  ]
+}

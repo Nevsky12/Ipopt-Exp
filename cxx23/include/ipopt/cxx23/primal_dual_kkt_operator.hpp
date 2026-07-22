@@ -76,6 +76,9 @@ struct PrimalDualState
    PrimalDualRegularization regularization;
    /** Caller-owned generation for numeric KKT data and evaluation state.
     *
+    * The caller must advance this generation whenever any numeric value
+    * reachable through this state view changes.
+    *
     * Matrix-free application does not require this token. Prepared
     * factorizations require a nonzero value and reject a different generation.
     */

@@ -7,10 +7,14 @@ The first vertical slice is an AnyAny-erased NLP model with:
 
 - `std::span` inputs and outputs;
 - `std::expected` callback failures;
-- optional native Jacobian-vector and transposed-Jacobian-vector products;
+- optional native Jacobian-vector and transposed-Jacobian-vector products,
+  plus an optional fused pair callback;
 - an optional native Hessian-of-the-Lagrangian product;
 - cached materialized sparse fallbacks for every missing product direction;
-- alias-safe products and validation before entering user callbacks;
+  the paired fallback evaluates Jacobian values once and visits each sparse
+  entry once for both products;
+- alias-safe transactional products and validation before entering user
+  callbacks;
 - a two-word fingerprint over dimensions, both sparsity patterns, derivative
   capabilities, and a model revision;
 - a reusable operator for `[H + D_x, J^T; J, -D_y]` with strong output
@@ -136,8 +140,9 @@ revision. `PrepareDirectPreconditioner` validates all three, validates the KKT
 state dimensions, and calls `factorize()` once. Later applications call only
 `solve_rhs()` into constructor-owned scratch storage and commit a finite result
 atomically. The caller must increment `PrimalDualState::numeric_revision`
-whenever any numeric coefficient of the KKT system changes; it is deliberately
-separate from the structural revision. Reusing a prepared factor with a
+whenever any numeric coefficient of the KKT system or any dual/slack value
+reachable through the state view changes; it is deliberately separate from
+the structural revision. Reusing a prepared factor with a
 different numeric revision is rejected before entering either FGMRES or the
 direct backend.
 
@@ -349,6 +354,13 @@ tests; the assembler tests also cover a real four-state row pivot, `T D = -I`,
 the exact mirrored Gram and canonical coupling, singular rejection, persistent
 structural zeros, and the generic two-state path.
 
+The four-state Gram and normalized-dynamics helpers now also emit their fixed
+output coordinates directly instead of retaining runtime row/state loops
+around fixed dot products. Deterministic profiling accepts this step, but its
+native timing series is excluded: total CV was 2.25%--2.36%, assembly CV was
+2.92%--3.24%, and assembly improved in only three of seven pairs. It therefore
+makes no new wall-clock claim.
+
 For fixed-size numeric factors, Gauss--Jordan now keeps the augmented identity
 in pivot-column order after the first real row pivot. Its exact support is
 therefore the contiguous processed prefix; scratch storage and the final
@@ -433,8 +445,8 @@ slack and diagonal positivity tests, the required inertia signature, pivot
 checks, and both residual gates are unchanged.
 
 A matched portable `x86-64-v3` Callgrind profile moved the candidate from
-32.606 to 22.414 billion instructions (`-31.26%`), versus 31.078 billion for
-the ordinary baseline (`-27.88%`). The reusable-workspace change moved the
+32.606 to 21.212 billion instructions (`-34.94%`), versus 31.078 billion for
+the ordinary baseline (`-31.75%`). The reusable-workspace change moved the
 preceding 24.955 billion profile to 24.513 billion (`-1.77%`) and removed all
 419.954 million instructions attributed to repeated packed-storage `memset`
 calls. The symmetric Schur change then moved 24.513 to 24.302 billion
@@ -466,14 +478,222 @@ moves 22.751 to 22.710 billion (`-0.18%`) and reduces
 The normalized-assembler changes then move 22.710 to 22.683 billion for the
 mirrored Gram, 22.659 billion for sparse `-I` writes, and 22.550 billion for
 fixed four-state products. Compile-time instantiation of the unchanged checked
-four-state inverse then moves the profile to 22.414 billion. Together the four
-steps save 296.319 million instructions globally (`-1.30%`) and move inclusive
-assembler cost from 2.481 to 2.169 billion (`-12.57%`). The inverse step alone
+four-state inverse then moves the profile to 22.414 billion, and straight-line
+four-state Gram/state outputs move it to 22.344 billion. Together the five
+steps save 365.908 million instructions globally (`-1.61%`) and move inclusive
+assembler cost from 2.481 to 2.101 billion (`-15.29%`). The inverse step alone
 saves 135.439 million instructions globally (`-0.60%`), reduces inclusive
 assembler cost by 137.365 million (`-5.96%`), and reduces assembler self cost
 from 956.510 to 822.732 million (`-13.99%`). Pivot choice, eager augmented
 identity initialization, finite and singularity checks, and the normalized
-inverse backward-error gate retain the same code and operation order.
+inverse backward-error gate retain the same code and operation order. The
+straight-line product step saves another 69.588 million global instructions
+(`-0.31%`) and 67.662 million inclusive assembler instructions (`-3.12%`);
+the fixed Gram helper falls by 71.70%, fixed normalized dynamics by 17.73%,
+and their combined instruction count by 50.90%. Finally, the off-diagonal
+inertia scan is fused with the matrix-copy passes without changing the
+edge-addition order. This moves 22.344 to 22.259 billion instructions
+(`-0.38%`) and inclusive assembler cost from 2.101 to 2.014 billion
+(`-4.17%`); the remaining diagonal-only certificate falls from 195.268 to
+30.274 million instructions (`-84.50%`). Both Hessian orientations are still
+copied independently, so exact asymmetry rejection is not a symmetry
+projection. The CAR2 trace contains 175 assemblies, two pre-dual-regularization
+misses, 173 exact certificates, 173 factorizations, and 171 accepted solves.
+A regression requires the symmetric four-state case to return exact inertia
+`(9,4,0)`, then verifies that changing only `H[0,1] != H[1,0]` preserves both
+stored values and suppresses the certificate. The associated native series is
+excluded from wall-clock claims because total CV is 3.25%--4.07% and assembly
+CV is 4.92%--5.40%, despite lower assembly time in all seven pairs.
+
+The sparse derivative providers then prepare immutable scatter plans from the
+validated structure. When every source coordinate has a unique packed target,
+each evaluation overwrites mapped coefficients and clears only structural
+holes; duplicate-target plans retain the former full clear and `+=` order.
+The unconditional source-finite gate remains, while the packed-output scan is
+skipped only when unique writes make accumulation overflow impossible. This
+moves the complete profile from 22.259 to 21.947 billion instructions
+(`-1.40%`), inclusive prepared-provider cost from 1.168 to 0.851 billion
+(`-27.15%`), and inclusive assembler cost from 2.014 to 1.697 billion
+(`-15.75%`). Clean and `NaN`-poisoned external buffers produce identical
+outputs in both stage and bordered-stage regressions; signed zero, duplicate
+coordinates, and invalid targets have focused coverage. CAR2 still accepts
+171/171 requests with zero fallback, while DTOC3 N=5000 and N=30000 each
+accept their single nonbordered candidate with constraint violation below
+`9.4e-16`. No wall-clock claim is made from the single native correctness runs.
+
+The reusable KKT operator now obtains `J*v` and `J^T*w` through one
+transactional AnyAny operation. Models may implement the fused callback
+directly; a fully materialized model evaluates Jacobian values once and
+updates both products in source-entry order, while mixed/native models retain
+the former transpose-then-forward callback order. Every input may alias either
+output, overlapping outputs are rejected, and scratch results are committed
+only after the complete pair succeeds. The legacy coordinate adapter expands
+the point and both directions once before forwarding the pair. On CAR2 this
+moves the portable profile from 21.947 to 21.826 billion instructions
+(`-0.55%`), reduces inclusive `NlpKktOperator::apply` cost from 735.114 to
+613.792 million (`-16.50%`), and replaces two outer AnyAny product chains
+costing 407.583 million instructions with one costing 286.260 million
+(`-29.77%`). Jacobian cache hits fall from 513 to 342 while the 172 actual
+Jacobian evaluations and the nonlinear trajectory remain unchanged. CAR2 is
+still 171/171 accepted with no fallback, and both large DTOC3 correctness
+cases retain 1/1 acceptance and sub-`9.4e-16` violation. These single native
+runs add no wall-clock claim.
+
+The legacy canary now retains the full `PrimalDualKktOperator` beside its
+already persistent coordinate problem for one `PDSystemSolver::InitializeImpl`
+lifetime. This preserves the live TNLP callbacks while reusing the validated
+layout, bound maps, structure fingerprint, and KKT scratch vectors. The cached
+operator is reset before its borrowed problem owner; reoptimization constructs
+one fresh operator after reinitialization. Restoration and other
+matrix-snapshot paths remain transient so that numeric snapshots never cross
+solves. On CAR2 this moves the portable profile from 21.826 to 21.555 billion
+instructions (`-1.24%`). KKT construction falls from 171 calls to one and from
+124.508 to 0.728 million inclusive instructions (`-99.42%`); the four bound-map
+queries per solve fall from 684 calls to four and from 108.087 to 0.634 million
+instructions (`-99.41%`). Inclusive `EvaluateSolve` cost falls by 270.426
+million instructions (`-3.44%`). CAR2 retains 171/171 acceptance, zero
+fallback, the same factorization/backsolve/quality counts, objective, and
+nonlinear trajectory. DTOC3 N=5000 and N=30000 again retain 1/1 acceptance and
+sub-`9.4e-16` violation. Lifecycle accounting is exercised across ordinary,
+`ReOptimizeNLP`, forced-restoration, and injected candidate-failure tests; the
+full Release and ASan+UBSan+leak suites remain 15/15. These single native runs
+add no wall-clock claim.
+
+The legacy evaluation bridge now writes its eleven current-state blocks and
+flat eight-block RHS/reference directions directly into per-`PDSystemSolver`
+contiguous workspaces. Equal-precision builds fill the final C++23 storage
+without the former stable-vector/conversion-vector pair; mixed-precision builds
+retain one monotonically grown stable-number scratch. Equality and inequality
+multipliers are adjacent and borrowed as one span, reconstructed residual
+storage is reused, and the accepted direction is scaled in place after the
+unscaled true-residual gate. Workspaces retain capacity across reinitialization,
+but every span is rebuilt after resize and the synchronous backend may not
+retain any view. Main and restoration solvers own separate storage, while a
+failed private copy or backend request cannot publish partially written data.
+On CAR2 this moves the portable profile from 21.555 to 21.371 billion
+instructions (`-0.85%`). Inclusive `EvaluateSolve` cost falls by 183.266
+million instructions (`-2.41%`), and the flat-RHS path falls from 94.973 to
+28.116 million (`-70.40%`). The 3,249 owning `CopyVector` calls disappear;
+profile-wide `memcpy` falls by 48.426 million instructions (`-5.17%`). CAR2
+retains 171/171 acceptance, zero fallback, the same work counts, objective,
+and trajectory; both DTOC3 sizes remain 1/1 with sub-`9.4e-16` violation.
+Release and debug `.text` are identical and their Callgrind totals differ by
+21 instructions. Growth/reuse accounting covers ordinary solves,
+`ReOptimizeNLP`, separate restoration storage, and recovery after injected
+backend failure; Release and ASan+UBSan+leak remain 15/15. The single native
+runs remain correctness checks and add no wall-clock claim.
+
+`CommitDirection` now consumes the scaled direction already checked finite by
+`EvaluateSolve`. When stable and C++23 scalar types are identical, it passes
+that immutable storage directly to the eight `PutValuesInVector` calls. A
+mixed-precision build still converts into the solver-owned stable scratch and
+checks representability completely before the first detached write. The
+replacement `IteratesVector` remains detached, all eight blocks are populated,
+and the legacy result remains the fallback until the final `result.Copy`.
+This removes 171 temporary full-direction vectors and their duplicate identity
+conversion/finite scan. On CAR2 the portable profile moves from 21.371 to
+21.325 billion instructions (`-0.22%`); inclusive commit cost falls from
+57.354 to 10.704 million (`-81.34%`) and commit self cost falls by 99.85%.
+CAR2 remains 171/171 with zero fallback and unchanged work counts, objective,
+and trajectory; DTOC3 N=5000 and N=30000 remain 1/1 with sub-`9.4e-16`
+violation. Release/debug `.text` is identical with a 61-instruction Callgrind
+difference, and both 15-test validation suites remain clean. The native runs
+remain correctness-only and make no new wall-clock claim.
+
+The bordered assembler now records a successful complementarity-state check
+only after the complete assembly returns successfully. Reconstruction reuses
+that proof only for the same nonzero caller-owned numeric revision; every
+assembly attempt still clears the proof and scans all eight dual/slack spans,
+while revision zero or a new revision is checked normally. On CAR2 this moves
+the portable profile from 21.325 to 21.310 billion instructions (`-0.07%`).
+The 171 redundant reconstruction scans disappear, reducing total
+`ValidComplementarityState` calls from 346 to 175 and its inclusive work from
+29.411 to 14.876 million instructions; all 175 assembly checks remain. CAR2
+retains 171/171 acceptance, zero fallback, unchanged work counts, objective,
+and trajectory; both DTOC3 sizes remain 1/1 with sub-`9.4e-16` violation.
+Release/debug `.text` is identical with a one-instruction Callgrind difference,
+and a focused changed-revision regression plus both 15-test validation suites
+remain clean. The native runs remain correctness-only and make no new
+wall-clock claim.
+
+Four-state normalized reconstruction now loads the four dynamics constraint
+positions and four normalized direction values once, then emits the four
+original directions through a C++23 fixed-size helper. Every output retains
+the prior sequential accumulation order `0 + term0 + term1 + term2 + term3`;
+all other state counts retain the generic nested-loop fallback. On CAR2 this
+moves the portable profile from 21.310 to 21.264 billion instructions
+(`-0.22%`). Inclusive candidate-solve cost falls by 46.285 million
+instructions (`-0.71%`), and its self cost falls from 112.660 to 71.319
+million (`-36.70%`). All CUTEst Hessian, Jacobian, constraint, and objective
+callback counts and instruction costs remain identical. A `NaN`-poisoned
+13-entry regression requires exact equality to an independent scalar
+reconstruction. CAR2 retains 171/171 acceptance, zero fallback, unchanged work
+counts and objective, while both DTOC3 sizes remain 1/1 with sub-`9.4e-16`
+violation. Release/debug `.text` is identical with a 57-instruction Callgrind
+difference, both 15-test suites remain clean, and the single native runs add no
+wall-clock claim.
+
+Full-direction reconstruction now carries an explicit, conservative overwrite
+certificate in both structured layouts. The three built-in assemblers publish
+it only after live binding/configuration has proved a complete reduced
+permutation and complementarity reconstruction. Certified `NDEBUG` backends
+skip the otherwise redundant full-vector prefill; unknown assemblers retain
+`NaN` poisoning, and every non-`NDEBUG` build poisons even certified output so
+an omitted write is rejected by the existing finite-output gate. On CAR2 this
+moves the portable profile from 21.264 to 21.252 billion instructions
+(`-0.05%`). Inclusive candidate-solve cost falls by 11.622 million instructions
+(`-0.18%`), while its self cost falls from 71.319 to 59.690 million
+(`-16.31%`). CAR2 retains 171/171 acceptance, zero fallback, unchanged work
+counts, objective, and Callgrind residual; DTOC3 N=5000 and N=30000 remain 1/1
+with their prior sub-`9.4e-16` violations. Release/debug `.text` is identical
+with a 24-instruction Callgrind difference. A deliberately incomplete generic
+assembler and `NaN`-poisoned full bordered reconstruction cover both sides of
+the capability, and both 15-test suites remain clean. The single native runs
+remain correctness-only and make no new wall-clock claim.
+
+Candidate-first requests now optionally carry caller-owned mutable direction
+storage. A structured backend writes the complete reconstructed direction into
+that span synchronously and returns an explicit marker with an empty owning
+result; callers that do not provide storage retain the original owning-vector
+fallback. The backend never retains the request span. The legacy bridge lends
+its existing flat-reference workspace only when no reference direction is
+needed, then performs the unchanged dimension, finite, true-residual, scaling,
+and detached-commit gates before the next solve can reuse it. Failed requests
+may clobber private scratch but cannot publish it. On CAR2 this moves the
+portable profile from 21.252 to 21.235 billion instructions (`-0.08%`). The 171
+hot full-vector copies disappear: profile-wide const-vector assignment falls
+from 173 calls and 23.411 million inclusive instructions to two calls and
+0.097 million. Inclusive candidate-solve cost falls from 6.478 to 6.458 billion
+instructions (`-0.32%`), and inclusive `EvaluateSolve` cost falls from 7.336
+to 7.319 billion (`-0.24%`). The added ownership/lifetime checks account for
+about 2.9 million extra self instructions in each enclosing layer; assembly
+and prepared-derivative-provider costs are unchanged exactly. CAR2 retains
+171/171 acceptance, zero fallback, unchanged work counts, objective, and
+Callgrind residual; both DTOC3 sizes remain 1/1 with their prior sub-`9.4e-16`
+violations. Release/debug `.text` is identical with a 148-instruction
+Callgrind difference, and both 15-test suites remain clean. The single native
+runs remain correctness-only and make no new wall-clock claim.
+
+The final true-residual reduction, direction scaling, and post-scale finite
+gate now share one index-ordered traversal in `EvaluateSolve`. The two
+residual maxima retain the exact operation order of `RelativeInfinityError`,
+every direction entry is still scaled, and the finite result is rejected only
+after the traversal. The independent unscaled-direction finite gate before
+the true KKT application and the later reference-direction comparison remain
+unchanged. On CAR2 this moves the portable profile from 21.235 to 21.212
+billion instructions (`-0.11%`). The former 171 standalone residual-reduction
+calls and their 29.072 million instructions disappear; fused work adds 5.813
+million self instructions to `EvaluateSolve`, whose inclusive cost nevertheless
+falls from 7.319 to 7.296 billion (`-0.31%`). `apply_flat`, `FlattenInto`,
+assembly, the prepared derivative provider, and every CUTEst callback count
+and cost remain unchanged. CAR2 retains 171/171 acceptance, zero fallback,
+unchanged work counts, objective, and Callgrind residual; both DTOC3 sizes
+remain 1/1 with their prior sub-`9.4e-16` violations. A focused regression
+checks exact residual equality, complete scaling, and overflow rejection;
+Release/debug `.text` is identical with a 259-instruction Callgrind difference,
+and both 15-test suites remain clean. The single native runs remain
+correctness-only and make no new wall-clock claim.
+
 Coordinate initialization and nested
 fingerprint self costs each fell by 99.42%; numeric stage-factor self cost fell
 from 2.961 to 1.773 billion instructions before the symmetry projection
@@ -496,6 +716,61 @@ was cross-checked against the
 [PETSc FGMRES implementation](https://petsc.org/release/src/ksp/ksp/impls/gmres/fgmres/fgmres.c.html).
 Unlike PR #773, convergence exactly at the iteration limit succeeds and a zero
 maximum performs no Krylov step.
+
+## Full-space FGMRES refinement
+
+The stable `PDFullSpaceSolver` also has an opt-in FGMRES implementation in its
+normal post-direct-solve refinement phase. `linear_system_refinement` keeps
+`iterative-refinement` as the default and adds `fgmres-kdelta`, for
+`K_delta / M = K_delta`, and `fgmres-k`, for `K / M = K_delta`. Both variants
+take the already computed direct step as `x0`, apply the complete eight-block
+primal-dual KKT operator, and use the exact current tagged `K_delta`
+factorization as a right preconditioner. A stale factorization is rejected;
+the preconditioner path cannot enter perturbation selection, quality
+improvement, or factorization retry. `fgmres_restart`,
+`fgmres_breakdown_tolerance`, and `fgmres_reorthogonalization` control the
+Arnoldi cycle, while the existing refinement iteration and residual options
+retain their outer-solver meaning.
+
+The focused live-Ipopt test forces nonzero equality/inequality perturbations,
+checks both operator choices against their corresponding full residual, and
+requires zero preconditioner cache misses. It also checks the work identities:
+classic refinement performs one full-KKT residual per phase and iteration,
+whereas FGMRES performs the phase residual plus an Arnoldi KKT application and
+a true-residual validation per Krylov iteration.
+
+Interleaved CPU-2 measurements used MUMPS, one OpenBLAS thread, the canonical
+unscaled `make_constraint` setup, seven natural runs, and five forced-`cd`
+runs. Values below are medians; each triple is
+classic / `fgmres-kdelta` / `fgmres-k`.
+
+| problem and perturbation | Optimize ms | refinement ms | Ipopt iterations |
+| --- | ---: | ---: | ---: |
+| CAR2, natural | 1941.76 / 2002.18 / 1998.57 | 234.40 / 289.91 / 289.46 | 236 / 236 / 236 |
+| DTOC3 N=5000, natural | 25.58 / 25.29 / 25.32 | 1.61 / 1.81 / 1.80 | 1 / 1 / 1 |
+| CAR2, forced `cd` | 2493.22 / 1670.81 / 1412.42 | 1070.83 / 775.08 / 664.77 | 157 / 114 / 96 |
+| DTOC3 N=5000, forced `cd` | 33.27 / 34.07 / 25.32 | 3.26 / 3.67 / 1.88 | 2 / 2 / 1 |
+
+| problem and perturbation | backsolves | KKT applications | factorization attempts |
+| --- | ---: | ---: | ---: |
+| CAR2, natural | 240 / 241 / 241 | 476 / 718 / 718 | 236 / 236 / 236 |
+| DTOC3 N=5000, natural | 1 / 1 / 1 | 2 / 3 / 3 | 1 / 1 / 1 |
+| CAR2, forced `cd` | 1305 / 726 / 622 | 1499 / 1574 / 1346 | 244 / 130 / 104 |
+| DTOC3 N=5000, forced `cd` | 2 / 2 / 1 | 4 / 6 / 3 | 2 / 2 / 1 |
+
+Every measured solve converged and every preconditioner cache-miss count was
+zero. With zero perturbations the two FGMRES modes have identical trajectories.
+DTOC3's natural trajectory is also bit-for-bit identical to classic
+refinement. CAR2 keeps the same 237 points and discrete line-search path; its
+largest aligned differences are `5.1e-8` in objective/infeasibility and
+`5.2e-7` in direction norm. Thus natural CAR2 exposes FGMRES's extra KKT apply
+as a 23.5%--23.7% refinement-time cost and about a 3% total cost; DTOC3 total
+times overlap and support no speed claim. Forced perturbations deliberately
+separate the operators: CAR2 takes 158 / 115 / 97 trajectory points and DTOC3
+takes 3 / 3 / 2. Those path changes explain the large forced-case time gains;
+they are not isolated kernel speedups. The raw samples, counters, convergence
+values, and trajectory comparison are recorded in
+`graphify-out/pdfullspace-fgmres-refinement-benchmark.json`.
 
 AnyAny is pinned to commit `560301c278e46bb527e49b1739dcb841035a9932`
 (release v1.2.1) and the source archive is verified by SHA-256.
@@ -527,7 +802,7 @@ set both `IPOPT_CXX23_LEGACY_IPOPT_INCLUDE_DIRECTORIES` and
 
 The runtime gate covers user scaling, all four fixed-variable treatments,
 forced restoration, `ReOptimizeNLP`, and an injected non-fatal mismatch. The
-source-tree C++23 gate currently passes 15/15 in both Release and
+source-tree C++23 gate currently passes 16/16 in both Release and
 ASan+UBSan+leak; the earlier broad gate also passes against genuine
 single-precision Ipopt. An installed unmodified Ipopt 3.14.20 remains source
 and binary compatible and passes its 11/11 compatible subset in both Release

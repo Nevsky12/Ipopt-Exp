@@ -120,6 +120,11 @@ struct LegacyAlgorithmCanaryStatistics
    Index restoration_candidate_first_requests = 0;
    Index restoration_candidate_first_accepted = 0;
    Index restoration_candidate_first_fallbacks = 0;
+   Index coordinate_kkt_constructions = 0;
+   Index coordinate_kkt_reuses = 0;
+   Index matrix_snapshot_kkt_constructions = 0;
+   Index evaluation_workspace_growth_requests = 0;
+   Index evaluation_workspace_reuse_requests = 0;
    std::string last_candidate_fallback_reason;
    Number maximum_direction_relative_error = 0.;
    Number maximum_residual_relative_error = 0.;
@@ -135,9 +140,28 @@ inline EvaluationError CanaryError(std::string message)
    };
 }
 
-inline EvaluationValue<std::vector<Number>> CopyVector(
-   const ::Ipopt::Vector& vector,
-   std::string_view       name
+struct VectorCopySource
+{
+   const ::Ipopt::Vector* vector;
+   std::string_view name;
+};
+
+inline bool ResizeWorkspace(
+   std::vector<Number>& workspace,
+   Index                dimension
+)
+{
+   const Index previous_capacity = workspace.capacity();
+   workspace.resize(dimension);
+   return workspace.capacity() != previous_capacity;
+}
+
+inline EvaluationResult CopyVectorInto(
+   const ::Ipopt::Vector&           vector,
+   std::string_view                 name,
+   std::span<Number>                destination,
+   std::vector<::Ipopt::Number>&    stable_workspace,
+   bool&                            workspace_grew
 )
 {
    EvaluationValue<Index> dimension =
@@ -146,14 +170,39 @@ inline EvaluationValue<std::vector<Number>> CopyVector(
    {
       return std::unexpected(dimension.error());
    }
-   std::vector<::Ipopt::Number> stable(*dimension);
-   ::Ipopt::TripletHelper::FillValuesFromVector(
-      vector.Dim(), vector, stable.data());
-   std::vector<Number> result(*dimension);
+   if( destination.size() != *dimension )
+   {
+      return std::unexpected(EvaluationError{
+         EvaluationErrorCode::dimension_mismatch,
+         std::string(name) + " destination has the wrong dimension"
+      });
+   }
+
+   if constexpr( std::same_as<::Ipopt::Number, Number> )
+   {
+      static_cast<void>(stable_workspace);
+      ::Ipopt::TripletHelper::FillValuesFromVector(
+         vector.Dim(), vector, destination.data());
+   }
+   else
+   {
+      const Index previous_capacity = stable_workspace.capacity();
+      if( stable_workspace.size() < *dimension )
+      {
+         stable_workspace.resize(*dimension);
+      }
+      workspace_grew |= stable_workspace.capacity() != previous_capacity;
+      ::Ipopt::TripletHelper::FillValuesFromVector(
+         vector.Dim(), vector, stable_workspace.data());
+      for( Index i = 0; i < *dimension; ++i )
+      {
+         destination[i] = static_cast<Number>(stable_workspace[i]);
+      }
+   }
+
    for( Index i = 0; i < *dimension; ++i )
    {
-      result[i] = static_cast<Number>(stable[i]);
-      if( !std::isfinite(result[i]) )
+      if( !std::isfinite(destination[i]) )
       {
          return std::unexpected(EvaluationError{
             EvaluationErrorCode::nonfinite_output,
@@ -161,15 +210,60 @@ inline EvaluationValue<std::vector<Number>> CopyVector(
          });
       }
    }
-   return result;
+   return {};
 }
 
-inline void Append(
-   const std::vector<Number>& source,
-   std::vector<Number>&       destination
+template <std::size_t BlockCount>
+EvaluationValue<std::array<std::span<const Number>, BlockCount>>
+CopyVectorsInto(
+   const std::array<VectorCopySource, BlockCount>& sources,
+   std::vector<Number>&                            destination,
+   std::vector<::Ipopt::Number>&                   stable_workspace,
+   bool&                                           workspace_grew
 )
 {
-   destination.insert(destination.end(), source.begin(), source.end());
+   std::array<Index, BlockCount> dimensions{};
+   Index total_dimension = 0;
+   for( Index i = 0; i < BlockCount; ++i )
+   {
+      EvaluationValue<Index> dimension = legacy_ipopt_detail::CheckedIndex(
+         sources[i].vector->Dim(), sources[i].name);
+      if( !dimension )
+      {
+         return std::unexpected(dimension.error());
+      }
+      if( *dimension > std::numeric_limits<Index>::max() - total_dimension )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::dimension_mismatch,
+            "C++23 canary copied-vector dimension overflows C++23 Index"
+         });
+      }
+      dimensions[i] = *dimension;
+      total_dimension += *dimension;
+   }
+
+   workspace_grew |= ResizeWorkspace(destination, total_dimension);
+   std::array<std::span<const Number>, BlockCount> result{};
+   std::span<Number> storage(destination);
+   Index offset = 0;
+   for( Index i = 0; i < BlockCount; ++i )
+   {
+      std::span<Number> block = storage.subspan(offset, dimensions[i]);
+      EvaluationResult copied = CopyVectorInto(
+         *sources[i].vector,
+         sources[i].name,
+         block,
+         stable_workspace,
+         workspace_grew);
+      if( !copied )
+      {
+         return std::unexpected(copied.error());
+      }
+      result[i] = block;
+      offset += dimensions[i];
+   }
+   return result;
 }
 
 inline Number RelativeInfinityError(
@@ -187,14 +281,57 @@ inline Number RelativeInfinityError(
    return difference / scale;
 }
 
+struct ScaledResidualMeasurement
+{
+   Number relative_error = 0.;
+   bool direction_is_finite = true;
+};
+
+/** Measure the true residual while applying the final direction scale.
+ *
+ * All three spans have the full KKT dimension at the only call site. The
+ * residual accumulators retain RelativeInfinityError's per-index operation
+ * order; scaling and its finite gate merely share the traversal.
+ */
+inline ScaledResidualMeasurement ScaleDirectionAndMeasureResidual(
+   std::span<Number>       direction,
+   Number                  alpha,
+   std::span<const Number> actual,
+   std::span<const Number> expected
+) noexcept
+{
+   Number difference = 0.;
+   Number scale = 1.;
+   bool direction_is_finite = true;
+   for( Index i = 0; i < actual.size(); ++i )
+   {
+      difference = std::max(difference, std::abs(actual[i] - expected[i]));
+      scale = std::max(scale, std::abs(expected[i]));
+      direction[i] *= alpha;
+      direction_is_finite &= std::isfinite(direction[i]);
+   }
+   return {
+      .relative_error = difference / scale,
+      .direction_is_finite = direction_is_finite
+   };
+}
+
 struct Comparison
 {
    Number direction_relative_error = 0.;
    Number residual_relative_error = 0.;
    bool converged = false;
-   std::vector<Number> direction;
+   std::vector<Number> owned_direction;
+   std::span<const Number> borrowed_direction;
    PrimalDualRegularization regularization{0., 0., 0., 0.};
    CandidateFirstWorkStatistics work;
+
+   std::span<const Number> direction_values() const noexcept
+   {
+      return borrowed_direction.empty()
+         ? std::span<const Number>(owned_direction)
+         : borrowed_direction;
+   }
 };
 
 #if IPOPT_CXX23_HAS_PDFULLSPACE_HEADER
@@ -251,6 +388,7 @@ public:
       const std::string&          prefix
    ) override
    {
+      cached_coordinate_kkt_.reset();
       cached_coordinate_problem_.reset();
       cached_coordinate_adapter_ = nullptr;
       cached_orig_nlp_ = nullptr;
@@ -341,7 +479,7 @@ public:
 
             ++statistics_.replacement_commit_requests;
             EvaluationResult committed = CommitDirection(
-               comparison->direction, result);
+               comparison->direction_values(), result);
             if( !committed )
             {
                ++statistics_.replacement_commit_failures;
@@ -453,7 +591,7 @@ public:
             {
                ++statistics_.replacement_commit_requests;
                EvaluationResult committed = CommitDirection(
-                  comparison->direction, result);
+                  comparison->direction_values(), result);
                if( !committed )
                {
                   ++statistics_.replacement_commit_failures;
@@ -638,45 +776,53 @@ private:
             ::Ipopt::GetRawPtr(orig_nlp->nlp()));
       }
 
-      EvaluationValue<std::vector<Number>> x =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->x(), "current x");
-      EvaluationValue<std::vector<Number>> y_c =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->y_c(), "current equality multipliers");
-      EvaluationValue<std::vector<Number>> y_d =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->y_d(), "current inequality multipliers");
-      EvaluationValue<std::vector<Number>> z_lower =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->z_L(), "current lower-bound multipliers");
-      EvaluationValue<std::vector<Number>> z_upper =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->z_U(), "current upper-bound multipliers");
-      EvaluationValue<std::vector<Number>> v_lower =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->v_L(), "current slack-lower multipliers");
-      EvaluationValue<std::vector<Number>> v_upper =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpData().curr()->v_U(), "current slack-upper multipliers");
-      EvaluationValue<std::vector<Number>> slack_x_lower =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpCq().curr_slack_x_L(), "current x lower slack");
-      EvaluationValue<std::vector<Number>> slack_x_upper =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpCq().curr_slack_x_U(), "current x upper slack");
-      EvaluationValue<std::vector<Number>> slack_s_lower =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpCq().curr_slack_s_L(), "current s lower slack");
-      EvaluationValue<std::vector<Number>> slack_s_upper =
-         legacy_algorithm_canary_detail::CopyVector(
-            *IpCq().curr_slack_s_U(), "current s upper slack");
-      if( !x || !y_c || !y_d || !z_lower || !z_upper || !v_lower || !v_upper ||
-          !slack_x_lower || !slack_x_upper || !slack_s_lower || !slack_s_upper )
+      bool workspace_grew = false;
+      const std::array<legacy_algorithm_canary_detail::VectorCopySource, 11>
+         state_sources{{
+            {::Ipopt::GetRawPtr(IpData().curr()->x()), "current x"},
+            {::Ipopt::GetRawPtr(IpData().curr()->y_c()),
+             "current equality multipliers"},
+            {::Ipopt::GetRawPtr(IpData().curr()->y_d()),
+             "current inequality multipliers"},
+            {::Ipopt::GetRawPtr(IpData().curr()->z_L()),
+             "current lower-bound multipliers"},
+            {::Ipopt::GetRawPtr(IpData().curr()->z_U()),
+             "current upper-bound multipliers"},
+            {::Ipopt::GetRawPtr(IpData().curr()->v_L()),
+             "current slack-lower multipliers"},
+            {::Ipopt::GetRawPtr(IpData().curr()->v_U()),
+             "current slack-upper multipliers"},
+            {::Ipopt::GetRawPtr(IpCq().curr_slack_x_L()),
+             "current x lower slack"},
+            {::Ipopt::GetRawPtr(IpCq().curr_slack_x_U()),
+             "current x upper slack"},
+            {::Ipopt::GetRawPtr(IpCq().curr_slack_s_L()),
+             "current s lower slack"},
+            {::Ipopt::GetRawPtr(IpCq().curr_slack_s_U()),
+             "current s upper slack"}
+         }};
+      EvaluationValue<std::array<std::span<const Number>, 11>> copied_state =
+         legacy_algorithm_canary_detail::CopyVectorsInto(
+            state_sources,
+            state_copy_workspace_,
+            stable_copy_workspace_,
+            workspace_grew);
+      if( !copied_state )
       {
          return std::unexpected(legacy_algorithm_canary_detail::CanaryError(
             "C++23 canary could not copy the current primal-dual state"));
       }
+      const std::span<const Number> x = (*copied_state)[0];
+      const std::span<const Number> y_c = (*copied_state)[1];
+      const std::span<const Number> y_d = (*copied_state)[2];
+      const std::span<const Number> z_lower = (*copied_state)[3];
+      const std::span<const Number> z_upper = (*copied_state)[4];
+      const std::span<const Number> v_lower = (*copied_state)[5];
+      const std::span<const Number> v_upper = (*copied_state)[6];
+      const std::span<const Number> slack_x_lower = (*copied_state)[7];
+      const std::span<const Number> slack_x_upper = (*copied_state)[8];
+      const std::span<const Number> slack_s_lower = (*copied_state)[9];
+      const std::span<const Number> slack_s_upper = (*copied_state)[10];
 
       ::Ipopt::SmartPtr<const ::Ipopt::SymMatrix> hessian = IpData().W();
       ::Ipopt::SmartPtr<const ::Ipopt::Matrix> jacobian_equalities =
@@ -697,41 +843,49 @@ private:
             "C++23 canary stable KKT matrices are unavailable"));
       }
 
-      EvaluationValue<AnyNlpProblem> problem = [&]()
+      const bool coordinate_problem = adapter != nullptr && orig_nlp != nullptr;
+      std::optional<AnyNlpProblem> transient_problem;
+      if( !coordinate_problem )
       {
-         if( adapter == nullptr || orig_nlp == nullptr )
-         {
-            return MakeLegacyMatrixSnapshotProblem({
+         EvaluationValue<AnyNlpProblem> prepared =
+            MakeLegacyMatrixSnapshotProblem({
                .hessian = ::Ipopt::GetRawPtr(hessian),
                .jacobian_equalities = ::Ipopt::GetRawPtr(jacobian_equalities),
                .jacobian_inequalities = ::Ipopt::GetRawPtr(jacobian_inequalities),
                .structural_revision = 1
             });
+         if( !prepared )
+         {
+            return std::unexpected(prepared.error());
          }
+         transient_problem.emplace(std::move(*prepared));
+      }
+      else
+      {
          if( !cached_coordinate_problem_.has_value() ||
              cached_coordinate_adapter_ != adapter ||
              cached_orig_nlp_ != orig_nlp )
          {
+            cached_coordinate_kkt_.reset();
+            cached_coordinate_problem_.reset();
+            cached_coordinate_adapter_ = nullptr;
+            cached_orig_nlp_ = nullptr;
             EvaluationValue<AnyNlpProblem> prepared =
                MakeLegacyIpoptCoordinateProblem(*adapter, *orig_nlp, 1);
             if( !prepared )
             {
-               return prepared;
+               return std::unexpected(prepared.error());
             }
             cached_coordinate_problem_.emplace(std::move(*prepared));
             cached_coordinate_adapter_ = adapter;
             cached_orig_nlp_ = orig_nlp;
          }
-         return EvaluationValue<AnyNlpProblem>{
-            BorrowNlpProblem(*cached_coordinate_problem_)};
-      }();
-      if( !problem )
-      {
-         return std::unexpected(problem.error());
       }
-      const NlpStructure structure = problem->nlp_structure();
-      if( x->size() != structure.variables ||
-          y_c->size() + y_d->size() != structure.constraints )
+      const NlpStructure structure = coordinate_problem
+         ? cached_coordinate_problem_->nlp_structure()
+         : transient_problem->nlp_structure();
+      if( x.size() != structure.variables ||
+          y_c.size() + y_d.size() != structure.constraints )
       {
          return std::unexpected(EvaluationError{
             EvaluationErrorCode::dimension_mismatch,
@@ -739,53 +893,96 @@ private:
          });
       }
 
-      PrimalDualLayout layout;
-      layout.equality_constraints.resize(y_c->size());
-      std::iota(layout.equality_constraints.begin(), layout.equality_constraints.end(), 0);
-      layout.inequality_constraints.resize(y_d->size());
-      std::iota(
-         layout.inequality_constraints.begin(),
-         layout.inequality_constraints.end(), y_c->size());
-      EvaluationValue<std::vector<Index>> primal_lower = BoundPositions(
-         IpNLP().Px_L(), x->size(), z_lower->size(), "P_x_lower");
-      EvaluationValue<std::vector<Index>> primal_upper = BoundPositions(
-         IpNLP().Px_U(), x->size(), z_upper->size(), "P_x_upper");
-      EvaluationValue<std::vector<Index>> slack_lower = BoundPositions(
-         IpNLP().Pd_L(), y_d->size(), v_lower->size(), "P_s_lower");
-      EvaluationValue<std::vector<Index>> slack_upper = BoundPositions(
-         IpNLP().Pd_U(), y_d->size(), v_upper->size(), "P_s_upper");
-      if( !primal_lower )
+      auto make_layout = [&]() -> EvaluationValue<PrimalDualLayout>
       {
-         return std::unexpected(primal_lower.error());
-      }
-      if( !primal_upper )
-      {
-         return std::unexpected(primal_upper.error());
-      }
-      if( !slack_lower )
-      {
-         return std::unexpected(slack_lower.error());
-      }
-      if( !slack_upper )
-      {
-         return std::unexpected(slack_upper.error());
-      }
-      layout.primal_lower_bounds = std::move(*primal_lower);
-      layout.primal_upper_bounds = std::move(*primal_upper);
-      layout.slack_lower_bounds = std::move(*slack_lower);
-      layout.slack_upper_bounds = std::move(*slack_upper);
+         PrimalDualLayout layout;
+         layout.equality_constraints.resize(y_c.size());
+         std::iota(
+            layout.equality_constraints.begin(),
+            layout.equality_constraints.end(), 0);
+         layout.inequality_constraints.resize(y_d.size());
+         std::iota(
+            layout.inequality_constraints.begin(),
+            layout.inequality_constraints.end(), y_c.size());
+         EvaluationValue<std::vector<Index>> primal_lower = BoundPositions(
+            IpNLP().Px_L(), x.size(), z_lower.size(), "P_x_lower");
+         EvaluationValue<std::vector<Index>> primal_upper = BoundPositions(
+            IpNLP().Px_U(), x.size(), z_upper.size(), "P_x_upper");
+         EvaluationValue<std::vector<Index>> slack_lower = BoundPositions(
+            IpNLP().Pd_L(), y_d.size(), v_lower.size(), "P_s_lower");
+         EvaluationValue<std::vector<Index>> slack_upper = BoundPositions(
+            IpNLP().Pd_U(), y_d.size(), v_upper.size(), "P_s_upper");
+         if( !primal_lower )
+         {
+            return std::unexpected(primal_lower.error());
+         }
+         if( !primal_upper )
+         {
+            return std::unexpected(primal_upper.error());
+         }
+         if( !slack_lower )
+         {
+            return std::unexpected(slack_lower.error());
+         }
+         if( !slack_upper )
+         {
+            return std::unexpected(slack_upper.error());
+         }
+         layout.primal_lower_bounds = std::move(*primal_lower);
+         layout.primal_upper_bounds = std::move(*primal_upper);
+         layout.slack_lower_bounds = std::move(*slack_lower);
+         layout.slack_upper_bounds = std::move(*slack_upper);
+         return layout;
+      };
 
-      PrimalDualKktOperator kkt(std::move(*problem), std::move(layout));
+      std::optional<PrimalDualKktOperator> transient_kkt;
+      PrimalDualKktOperator* kkt_pointer = nullptr;
+      if( coordinate_problem )
+      {
+         if( !cached_coordinate_kkt_.has_value() )
+         {
+            EvaluationValue<PrimalDualLayout> layout = make_layout();
+            if( !layout )
+            {
+               return std::unexpected(layout.error());
+            }
+            cached_coordinate_kkt_.emplace(
+               BorrowNlpProblem(*cached_coordinate_problem_),
+               std::move(*layout));
+            ++statistics_.coordinate_kkt_constructions;
+         }
+         else
+         {
+            ++statistics_.coordinate_kkt_reuses;
+         }
+         kkt_pointer = &*cached_coordinate_kkt_;
+      }
+      else
+      {
+         EvaluationValue<PrimalDualLayout> layout = make_layout();
+         if( !layout )
+         {
+            return std::unexpected(layout.error());
+         }
+         transient_kkt.emplace(
+            std::move(*transient_problem), std::move(*layout));
+         ++statistics_.matrix_snapshot_kkt_constructions;
+         kkt_pointer = &*transient_kkt;
+      }
+      PrimalDualKktOperator& kkt = *kkt_pointer;
       if( !kkt.valid() )
       {
+         if( coordinate_problem )
+         {
+            cached_coordinate_kkt_.reset();
+         }
          return std::unexpected(legacy_algorithm_canary_detail::CanaryError(
             "C++23 canary constructed an invalid KKT layout"));
       }
 
-      std::vector<Number> multipliers;
-      multipliers.reserve(y_c->size() + y_d->size());
-      legacy_algorithm_canary_detail::Append(*y_c, multipliers);
-      legacy_algorithm_canary_detail::Append(*y_d, multipliers);
+      const std::span<const Number> multipliers =
+         std::span<const Number>(state_copy_workspace_)
+            .subspan(x.size(), y_c.size() + y_d.size());
       PrimalDualRegularization regularization{0., 0., 0., 0.};
       if( reference_result != nullptr )
       {
@@ -818,20 +1015,21 @@ private:
          ++numeric_revision_;
       }
       PrimalDualState state{
-         .nlp = {*x, 1., multipliers},
-         .z_lower = *z_lower,
-         .z_upper = *z_upper,
-         .v_lower = *v_lower,
-         .v_upper = *v_upper,
-         .slack_x_lower = *slack_x_lower,
-         .slack_x_upper = *slack_x_upper,
-         .slack_s_lower = *slack_s_lower,
-         .slack_s_upper = *slack_s_upper,
+         .nlp = {x, 1., multipliers},
+         .z_lower = z_lower,
+         .z_upper = z_upper,
+         .v_lower = v_lower,
+         .v_upper = v_upper,
+         .slack_x_lower = slack_x_lower,
+         .slack_x_upper = slack_x_upper,
+         .slack_s_lower = slack_s_lower,
+         .slack_s_upper = slack_s_upper,
          .regularization = regularization,
          .numeric_revision = numeric_revision_
       };
 
-      EvaluationValue<std::vector<Number>> flat_rhs = Flatten(rhs);
+      EvaluationValue<std::span<const Number>> flat_rhs = FlattenInto(
+         rhs, flat_rhs_workspace_, workspace_grew);
       if( !flat_rhs )
       {
          return std::unexpected(flat_rhs.error());
@@ -844,11 +1042,14 @@ private:
          });
       }
 
-      std::vector<Number> flat_reference;
+      std::span<const Number> flat_reference;
       if( reference_result != nullptr )
       {
-         EvaluationValue<std::vector<Number>> copied_reference =
-            Flatten(*reference_result);
+         EvaluationValue<std::span<const Number>> copied_reference =
+            FlattenInto(
+               *reference_result,
+               flat_reference_workspace_,
+               workspace_grew);
          if( !copied_reference )
          {
             return std::unexpected(copied_reference.error());
@@ -860,10 +1061,28 @@ private:
                "C++23 canary reference direction has the wrong dimension"
             });
          }
-         flat_reference = std::move(*copied_reference);
+         flat_reference = *copied_reference;
+      }
+      else
+      {
+         workspace_grew |= legacy_algorithm_canary_detail::ResizeWorkspace(
+            flat_reference_workspace_, kkt.flat_dimension());
       }
 
-      std::vector<Number> unscaled_solution;
+      workspace_grew |= legacy_algorithm_canary_detail::ResizeWorkspace(
+         reconstructed_rhs_workspace_, kkt.flat_dimension());
+      if( workspace_grew )
+      {
+         ++statistics_.evaluation_workspace_growth_requests;
+      }
+      else
+      {
+         ++statistics_.evaluation_workspace_reuse_requests;
+      }
+
+      std::vector<Number> owned_unscaled_solution;
+      std::span<Number> unscaled_solution;
+      bool solution_borrows_workspace = false;
       CandidateFirstWorkStatistics work;
       bool converged = false;
       if( reference_result == nullptr )
@@ -877,11 +1096,12 @@ private:
             kkt.dimensions().y_c + kkt.dimensions().y_d;
          EvaluationValue<CandidateFirstSolveResult> candidate =
             options_.candidate_first_backend->candidate_first_solve({
-               .kkt = kkt,
-               .state = state,
-               .rhs = *flat_rhs,
-               .required_negative_eigenvalues = required_negative_eigenvalues,
-               .restoration_problem = restoration_problem_
+               kkt,
+               state,
+               *flat_rhs,
+               required_negative_eigenvalues,
+               restoration_problem_,
+               flat_reference_workspace_
             });
          if( !candidate )
          {
@@ -904,7 +1124,24 @@ private:
          {
             return std::unexpected(valid.error());
          }
-         if( candidate->direction.size() != kkt.flat_dimension() )
+         if( candidate->direction_written_to_request_output )
+         {
+            if( !candidate->direction.empty() )
+            {
+               return std::unexpected(EvaluationError{
+                  EvaluationErrorCode::invalid_layout,
+                  "candidate backend returned ambiguous direction storage"
+               });
+            }
+            unscaled_solution = flat_reference_workspace_;
+            solution_borrows_workspace = true;
+         }
+         else if( candidate->direction.size() == kkt.flat_dimension() )
+         {
+            owned_unscaled_solution = std::move(candidate->direction);
+            unscaled_solution = owned_unscaled_solution;
+         }
+         else
          {
             return std::unexpected(EvaluationError{
                EvaluationErrorCode::dimension_mismatch,
@@ -913,7 +1150,6 @@ private:
          }
          regularization = candidate->accepted_regularization;
          state.regularization = regularization;
-         unscaled_solution = std::move(candidate->direction);
          work = candidate->work;
          converged = candidate->converged;
       }
@@ -949,7 +1185,8 @@ private:
             return std::unexpected(session_result.error());
          }
          PrimalDualSolveSession session = std::move(*session_result);
-         unscaled_solution.assign(kkt.flat_dimension(), 0.);
+         owned_unscaled_solution.assign(kkt.flat_dimension(), 0.);
+         unscaled_solution = owned_unscaled_solution;
          EvaluationValue<FgmresResult> solved = session.solve(
             kkt, state, preconditioner, *flat_rhs, unscaled_solution);
          if( !solved )
@@ -968,43 +1205,45 @@ private:
          });
       }
 
-      std::vector<Number> reconstructed_rhs(kkt.flat_dimension());
       if( reference_result == nullptr )
       {
          ++statistics_.candidate_first_validation_kkt_applications;
          statistics_.candidate_first_validation_derivative_product_requests += 3;
       }
       EvaluationResult applied = kkt.apply_flat(
-         state, unscaled_solution, reconstructed_rhs);
+         state, unscaled_solution, reconstructed_rhs_workspace_);
       if( !applied )
       {
          return std::unexpected(applied.error());
       }
 
-      std::vector<Number> solution = unscaled_solution;
-      for( Number& value : solution )
-      {
-         value *= static_cast<Number>(alpha);
-      }
-      if( !std::ranges::all_of(
-             solution, [](Number value) { return std::isfinite(value); }) )
+      const legacy_algorithm_canary_detail::ScaledResidualMeasurement
+         scaled_residual =
+            legacy_algorithm_canary_detail::ScaleDirectionAndMeasureResidual(
+               unscaled_solution,
+               static_cast<Number>(alpha),
+               reconstructed_rhs_workspace_,
+               *flat_rhs);
+      if( !scaled_residual.direction_is_finite )
       {
          return std::unexpected(EvaluationError{
             EvaluationErrorCode::nonfinite_output,
             "C++23 scaled direction is nonfinite"
          });
       }
+      const Number direction_relative_error = reference_result == nullptr
+         ? 0.
+         : legacy_algorithm_canary_detail::RelativeInfinityError(
+              unscaled_solution, flat_reference);
 
       return legacy_algorithm_canary_detail::Comparison{
-         .direction_relative_error = reference_result == nullptr
-            ? 0.
-            : legacy_algorithm_canary_detail::RelativeInfinityError(
-                 solution, flat_reference),
-         .residual_relative_error =
-            legacy_algorithm_canary_detail::RelativeInfinityError(
-               reconstructed_rhs, *flat_rhs),
+         .direction_relative_error = direction_relative_error,
+         .residual_relative_error = scaled_residual.relative_error,
          .converged = converged,
-         .direction = std::move(solution),
+         .owned_direction = std::move(owned_unscaled_solution),
+         .borrowed_direction = solution_borrows_workspace
+            ? std::span<const Number>(unscaled_solution)
+            : std::span<const Number>{},
          .regularization = regularization,
          .work = work
       };
@@ -1036,7 +1275,7 @@ private:
       return {};
    }
 
-   static EvaluationResult CommitDirection(
+   EvaluationResult CommitDirection(
       std::span<const Number>       direction,
       ::Ipopt::IteratesVector& result
    )
@@ -1081,17 +1320,34 @@ private:
          });
       }
 
-      std::vector<::Ipopt::Number> stable(direction.size());
-      for( Index i = 0; i < direction.size(); ++i )
+      const ::Ipopt::Number* stable_values = nullptr;
+      if constexpr( std::same_as<::Ipopt::Number, Number> )
       {
-         stable[i] = static_cast<::Ipopt::Number>(direction[i]);
-         if( !std::isfinite(static_cast<Number>(stable[i])) )
+         // EvaluateSolve already validated the scaled direction. With equal
+         // scalar types there is no conversion left that can fail, so write
+         // that immutable storage directly into the detached replacement.
+         stable_values = direction.data();
+      }
+      else
+      {
+         if( stable_copy_workspace_.size() < direction.size() )
          {
-            return std::unexpected(EvaluationError{
-               EvaluationErrorCode::nonfinite_output,
-               "replacement direction is not representable by Ipopt::Number"
-            });
+            stable_copy_workspace_.resize(direction.size());
          }
+         for( Index i = 0; i < direction.size(); ++i )
+         {
+            stable_copy_workspace_[i] =
+               static_cast<::Ipopt::Number>(direction[i]);
+            if( !std::isfinite(
+                   static_cast<Number>(stable_copy_workspace_[i])) )
+            {
+               return std::unexpected(EvaluationError{
+                  EvaluationErrorCode::nonfinite_output,
+                  "replacement direction is not representable by Ipopt::Number"
+               });
+            }
+         }
+         stable_values = stable_copy_workspace_.data();
       }
 
       Index offset = 0;
@@ -1101,7 +1357,7 @@ private:
          const Index block_dimension = static_cast<Index>(block->Dim());
          const ::Ipopt::Number* values = block_dimension == 0
             ? &empty
-            : stable.data() + offset;
+            : stable_values + offset;
          ::Ipopt::TripletHelper::PutValuesInVector(
             block->Dim(), values, *block);
          offset += block_dimension;
@@ -1221,53 +1477,50 @@ private:
       return positions;
    }
 
-   static EvaluationValue<std::vector<Number>> Flatten(
-      const ::Ipopt::IteratesVector& iterates
+   EvaluationValue<std::span<const Number>> FlattenInto(
+      const ::Ipopt::IteratesVector& iterates,
+      std::vector<Number>&            destination,
+      bool&                           workspace_grew
    )
    {
-      EvaluationValue<std::vector<Number>> x =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.x(), "flat x");
-      EvaluationValue<std::vector<Number>> s =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.s(), "flat s");
-      EvaluationValue<std::vector<Number>> y_c =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.y_c(), "flat y_c");
-      EvaluationValue<std::vector<Number>> y_d =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.y_d(), "flat y_d");
-      EvaluationValue<std::vector<Number>> z_lower =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.z_L(), "flat z_L");
-      EvaluationValue<std::vector<Number>> z_upper =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.z_U(), "flat z_U");
-      EvaluationValue<std::vector<Number>> v_lower =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.v_L(), "flat v_L");
-      EvaluationValue<std::vector<Number>> v_upper =
-         legacy_algorithm_canary_detail::CopyVector(*iterates.v_U(), "flat v_U");
-      if( !x || !s || !y_c || !y_d || !z_lower || !z_upper || !v_lower || !v_upper )
+      const std::array<legacy_algorithm_canary_detail::VectorCopySource, 8>
+         sources{{
+            {::Ipopt::GetRawPtr(iterates.x()), "flat x"},
+            {::Ipopt::GetRawPtr(iterates.s()), "flat s"},
+            {::Ipopt::GetRawPtr(iterates.y_c()), "flat y_c"},
+            {::Ipopt::GetRawPtr(iterates.y_d()), "flat y_d"},
+            {::Ipopt::GetRawPtr(iterates.z_L()), "flat z_L"},
+            {::Ipopt::GetRawPtr(iterates.z_U()), "flat z_U"},
+            {::Ipopt::GetRawPtr(iterates.v_L()), "flat v_L"},
+            {::Ipopt::GetRawPtr(iterates.v_U()), "flat v_U"}
+         }};
+      EvaluationValue<std::array<std::span<const Number>, 8>> copied =
+         legacy_algorithm_canary_detail::CopyVectorsInto(
+            sources,
+            destination,
+            stable_copy_workspace_,
+            workspace_grew);
+      if( !copied )
       {
          return std::unexpected(EvaluationError{
             EvaluationErrorCode::model_failure,
             "C++23 canary could not flatten an IteratesVector"
          });
       }
-      std::vector<Number> result;
-      result.reserve(
-         x->size() + s->size() + y_c->size() + y_d->size() +
-         z_lower->size() + z_upper->size() + v_lower->size() + v_upper->size());
-      legacy_algorithm_canary_detail::Append(*x, result);
-      legacy_algorithm_canary_detail::Append(*s, result);
-      legacy_algorithm_canary_detail::Append(*y_c, result);
-      legacy_algorithm_canary_detail::Append(*y_d, result);
-      legacy_algorithm_canary_detail::Append(*z_lower, result);
-      legacy_algorithm_canary_detail::Append(*z_upper, result);
-      legacy_algorithm_canary_detail::Append(*v_lower, result);
-      legacy_algorithm_canary_detail::Append(*v_upper, result);
-      return result;
+      return std::span<const Number>(destination);
    }
 
    ::Ipopt::SmartPtr<::Ipopt::PDSystemSolver> reference_solver_;
    ::Ipopt::SmartPtr<::Ipopt::AugSystemSolver> augmented_solver_;
    const LegacyAlgorithmCanaryOptions options_;
    LegacyAlgorithmCanaryStatistics& statistics_;
+   std::vector<Number> state_copy_workspace_;
+   std::vector<Number> flat_rhs_workspace_;
+   std::vector<Number> flat_reference_workspace_;
+   std::vector<Number> reconstructed_rhs_workspace_;
+   std::vector<::Ipopt::Number> stable_copy_workspace_;
    std::optional<AnyNlpProblem> cached_coordinate_problem_;
+   std::optional<PrimalDualKktOperator> cached_coordinate_kkt_;
    const ::Ipopt::TNLPAdapter* cached_coordinate_adapter_ = nullptr;
    const ::Ipopt::OrigIpoptNLP* cached_orig_nlp_ = nullptr;
    std::uint64_t numeric_revision_ = 0;

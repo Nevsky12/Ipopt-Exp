@@ -133,6 +133,21 @@ inline std::span<const Number> PreserveAliasedInput(
    return scratch;
 }
 
+inline std::span<const Number> PreserveAliasedInput(
+   std::span<const Number> input,
+   std::span<Number>       first_output,
+   std::span<Number>       second_output,
+   std::vector<Number>&    scratch
+)
+{
+   if( !Overlaps(input, first_output) && !Overlaps(input, second_output) )
+   {
+      return input;
+   }
+   scratch.assign(input.begin(), input.end());
+   return scratch;
+}
+
 inline void HashWord(StructureFingerprint& fingerprint, std::uint64_t value) noexcept
 {
    constexpr std::uint64_t fnv_prime = 1099511628211ULL;
@@ -164,6 +179,23 @@ concept HasNativeJacobianTransposeProduct = requires(
 )
 {
    { model.eval_jacobian_transpose_product(x, direction, result) } -> std::same_as<EvaluationResult>;
+};
+
+template <class Model>
+concept HasNativeJacobianProducts = requires(
+   Model&                  model,
+   std::span<const Number> x,
+   std::span<const Number> forward_direction,
+   std::span<const Number> transpose_direction,
+   std::span<Number>       forward_result,
+   std::span<Number>       transpose_result
+)
+{
+   {
+      model.eval_jacobian_products(
+         x, forward_direction, transpose_direction,
+         forward_result, transpose_result)
+   } -> std::same_as<EvaluationResult>;
 };
 
 template <class Model>
@@ -422,6 +454,79 @@ public:
       return MaterializedJacobianProduct(safe_x, safe_direction, result, true);
    }
 
+   /** Evaluate J*v and J^T*w as one transactional operation.
+    *
+    * Fully materialized models evaluate Jacobian values once and update both
+    * products in source-entry order. Native and mixed models preserve their
+    * existing transpose-then-forward callback order.
+    */
+   EvaluationResult nlp_jacobian_products(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      const NlpStructure structure = nlp_structure();
+      if( x.size() != structure.variables )
+      {
+         return detail::DimensionMismatch("x", x.size(), structure.variables);
+      }
+      if( forward_direction.size() != structure.variables )
+      {
+         return detail::DimensionMismatch(
+            "forward direction", forward_direction.size(), structure.variables);
+      }
+      if( transpose_direction.size() != structure.constraints )
+      {
+         return detail::DimensionMismatch(
+            "transpose direction", transpose_direction.size(), structure.constraints);
+      }
+      if( forward_result.size() != structure.constraints )
+      {
+         return detail::DimensionMismatch(
+            "forward product result", forward_result.size(), structure.constraints);
+      }
+      if( transpose_result.size() != structure.variables )
+      {
+         return detail::DimensionMismatch(
+            "transpose product result", transpose_result.size(), structure.variables);
+      }
+      if( detail::Overlaps(
+             std::span<const Number>(forward_result), transpose_result) )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::overlapping_outputs,
+            "Jacobian product outputs overlap"
+         });
+      }
+
+      const std::span<const Number> safe_x = detail::PreserveAliasedInput(
+         x, forward_result, transpose_result, x_scratch_);
+      const std::span<const Number> safe_forward_direction =
+         detail::PreserveAliasedInput(
+            forward_direction, forward_result, transpose_result,
+            direction_scratch_);
+      const std::span<const Number> safe_transpose_direction =
+         detail::PreserveAliasedInput(
+            transpose_direction, forward_result, transpose_result,
+            transpose_direction_scratch_);
+      jacobian_forward_result_scratch_.resize(structure.constraints);
+      jacobian_transpose_result_scratch_.resize(structure.variables);
+      if( EvaluationResult evaluated = EvaluateJacobianProducts(
+             safe_x, safe_forward_direction, safe_transpose_direction,
+             jacobian_forward_result_scratch_,
+             jacobian_transpose_result_scratch_);
+          !evaluated )
+      {
+         return evaluated;
+      }
+      std::ranges::copy(jacobian_forward_result_scratch_, forward_result.begin());
+      std::ranges::copy(jacobian_transpose_result_scratch_, transpose_result.begin());
+      return {};
+   }
+
    EvaluationResult nlp_hessian_product(
       std::span<const Number> x,
       Number                  objective_factor,
@@ -635,6 +740,89 @@ private:
       return {};
    }
 
+   EvaluationResult MaterializedJacobianProducts(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      if( EvaluationResult cached = EnsureJacobianStructure(); !cached )
+      {
+         return cached;
+      }
+      if( EvaluationResult evaluated = model_.eval_jacobian_values(
+             x, jacobian_values_);
+          !evaluated )
+      {
+         return evaluated;
+      }
+
+      std::ranges::fill(forward_result, 0.);
+      std::ranges::fill(transpose_result, 0.);
+      for( Index i = 0; i < jacobian_values_.size(); ++i )
+      {
+         const Index row = jacobian_rows_[i];
+         const Index column = jacobian_columns_[i];
+         const Number value = jacobian_values_[i];
+         forward_result[row] += value * forward_direction[column];
+         transpose_result[column] += value * transpose_direction[row];
+      }
+      return {};
+   }
+
+   EvaluationResult EvaluateJacobianProducts(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      if constexpr( detail::HasNativeJacobianProducts<Model> )
+      {
+         return model_.eval_jacobian_products(
+            x, forward_direction, transpose_direction,
+            forward_result, transpose_result);
+      }
+      else if constexpr(
+         !detail::HasNativeJacobianProduct<Model> &&
+         !detail::HasNativeJacobianTransposeProduct<Model> )
+      {
+         return MaterializedJacobianProducts(
+            x, forward_direction, transpose_direction,
+            forward_result, transpose_result);
+      }
+      else
+      {
+         if constexpr( detail::HasNativeJacobianTransposeProduct<Model> )
+         {
+            if( EvaluationResult evaluated =
+                   model_.eval_jacobian_transpose_product(
+                      x, transpose_direction, transpose_result);
+                !evaluated )
+            {
+               return evaluated;
+            }
+         }
+         else if( EvaluationResult evaluated = MaterializedJacobianProduct(
+                     x, transpose_direction, transpose_result, true);
+                  !evaluated )
+         {
+            return evaluated;
+         }
+
+         if constexpr( detail::HasNativeJacobianProduct<Model> )
+         {
+            return model_.eval_jacobian_product(
+               x, forward_direction, forward_result);
+         }
+         return MaterializedJacobianProduct(
+            x, forward_direction, forward_result, false);
+      }
+   }
+
    EvaluationResult MaterializedHessianProduct(
       std::span<const Number> x,
       Number                  objective_factor,
@@ -681,6 +869,9 @@ private:
    std::vector<Number> x_scratch_;
    std::vector<Number> multiplier_scratch_;
    std::vector<Number> direction_scratch_;
+   std::vector<Number> transpose_direction_scratch_;
+   std::vector<Number> jacobian_forward_result_scratch_;
+   std::vector<Number> jacobian_transpose_result_scratch_;
    std::optional<StructureFingerprint> structure_fingerprint_;
 };
 
@@ -717,6 +908,15 @@ anyany_method(nlp_jacobian_product,
 anyany_method(nlp_jacobian_transpose_product,
    (&self, std::span<const Number> x, std::span<const Number> direction, std::span<Number> result)
       requires(self.nlp_jacobian_transpose_product(x, direction, result))->EvaluationResult);
+anyany_method(nlp_jacobian_products,
+   (&self, std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number> forward_result,
+      std::span<Number> transpose_result)
+      requires(self.nlp_jacobian_products(
+         x, forward_direction, transpose_direction,
+         forward_result, transpose_result))->EvaluationResult);
 anyany_method(nlp_hessian_product,
    (&self, std::span<const Number> x, Number objective_factor,
       std::span<const Number> multipliers, std::span<const Number> direction,
@@ -741,6 +941,7 @@ using AnyNlpProblem = aa::any_with<
    nlp_hessian_product_capabilities,
    nlp_jacobian_product,
    nlp_jacobian_transpose_product,
+   nlp_jacobian_products,
    nlp_hessian_product,
    nlp_structure_fingerprint>;
 
@@ -845,6 +1046,19 @@ public:
    )
    {
       return problem_.nlp_jacobian_transpose_product(x, direction, result);
+   }
+
+   EvaluationResult nlp_jacobian_products(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      return problem_.nlp_jacobian_products(
+         x, forward_direction, transpose_direction,
+         forward_result, transpose_result);
    }
 
    EvaluationResult nlp_hessian_product(

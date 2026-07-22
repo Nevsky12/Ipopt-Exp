@@ -281,7 +281,16 @@ public:
       }
       else
       {
-         std::ranges::copy(structured_solution, full_direction.begin());
+         if( incomplete_reconstruction )
+         {
+            std::ranges::copy(
+               structured_solution.first(structured_solution.size() - 1),
+               full_direction.begin());
+         }
+         else
+         {
+            std::ranges::copy(structured_solution, full_direction.begin());
+         }
       }
       if( nonfinite_reconstruction )
       {
@@ -292,6 +301,7 @@ public:
 
    bool fail_assembly = false;
    bool fail_reconstruction = false;
+   bool incomplete_reconstruction = false;
    bool nonfinite_reconstruction = false;
    bool uncertified_eliminated_inertia = false;
    bool wrong_eliminated_count = false;
@@ -404,21 +414,33 @@ private:
 };
 
 void CheckTrueResidual(
-   PrimalDualKktOperator&             kkt,
-   PrimalDualState                    state,
-   const CandidateFirstSolveResult&   result,
-   std::span<const Number>            rhs
+   PrimalDualKktOperator&    kkt,
+   PrimalDualState           state,
+   std::span<const Number>   direction,
+   PrimalDualRegularization  regularization,
+   std::span<const Number>   rhs
 )
 {
-   state.regularization = result.accepted_regularization;
+   state.regularization = regularization;
    std::array<Number, 3> applied{};
    Check(
-      kkt.apply_flat(state, result.direction, applied).has_value(),
+      kkt.apply_flat(state, direction, applied).has_value(),
       "accepted structured direction could not be applied");
    for( Index row = 0; row < applied.size(); ++row )
    {
       CheckNear(applied[row], rhs[row], "structured direction fails the true KKT");
    }
+}
+
+void CheckTrueResidual(
+   PrimalDualKktOperator&           kkt,
+   PrimalDualState                  state,
+   const CandidateFirstSolveResult& result,
+   std::span<const Number>          rhs
+)
+{
+   CheckTrueResidual(
+      kkt, state, result.direction, result.accepted_regularization, rhs);
 }
 
 void TestHappyPathAndErasure()
@@ -453,6 +475,37 @@ void TestHappyPathAndErasure()
       erased_solve.has_value() && erased_solve->converged,
       "AnyAny-erased stage candidate failed");
    CheckTrueResidual(kkt, state, *erased_solve, rhs);
+
+   std::array<Number, 3> direction_output;
+   std::ranges::fill(
+      direction_output, std::numeric_limits<Number>::quiet_NaN());
+   const auto output_solve = erased->candidate_first_solve({
+      kkt, state, rhs, 1, false, direction_output
+   });
+   Check(
+      output_solve.has_value() && output_solve->direction.empty() &&
+         output_solve->direction_written_to_request_output,
+      "AnyAny-erased stage candidate did not select caller-owned output");
+   CheckTrueResidual(
+      kkt,
+      state,
+      direction_output,
+      output_solve->accepted_regularization,
+      rhs);
+   const std::array<Number, 3> retained_output = direction_output;
+   Check(
+      erased->candidate_first_solve(request).has_value() &&
+         direction_output == retained_output,
+      "stage candidate retained caller-owned output past the solve");
+
+   std::array<Number, 2> short_output{};
+   const auto wrong_output = erased->candidate_first_solve({
+      kkt, state, rhs, 1, false, short_output
+   });
+   Check(
+      !wrong_output.has_value() &&
+         wrong_output.error().code == EvaluationErrorCode::dimension_mismatch,
+      "stage candidate accepted a wrong-size caller-owned output");
 }
 
 void TestPreparedWorkspaceBinding()
@@ -649,6 +702,17 @@ void TestContractFailures()
    Check(
       !reconstruction.solve({kkt, state, rhs, 1, false}).has_value(),
       "failed direction reconstruction was accepted");
+
+   TinyStageAssembler incomplete_assembler(layout, model);
+   incomplete_assembler.incomplete_reconstruction = true;
+   StageStructuredCandidateBackend incomplete(std::move(incomplete_assembler));
+   const auto incomplete_result =
+      incomplete.solve({kkt, state, rhs, 1, false});
+   Check(
+      !incomplete_result.has_value() &&
+         incomplete_result.error().code ==
+            EvaluationErrorCode::nonfinite_output,
+      "incomplete direction reconstruction was accepted");
 
    TinyStageAssembler nonfinite_assembler(layout, model);
    nonfinite_assembler.nonfinite_reconstruction = true;

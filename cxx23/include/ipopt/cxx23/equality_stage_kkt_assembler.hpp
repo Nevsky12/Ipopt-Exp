@@ -752,6 +752,7 @@ private:
          return;
       }
       workspace.layout_.kkt_fingerprint = *fingerprint;
+      workspace.layout_.full_direction_overwrite_certified = true;
       layout_ = std::move(workspace.layout_);
       physical_block_sizes_ = std::move(workspace.physical_block_sizes_);
       diagonal_offsets_ = std::move(workspace.diagonal_offsets_);

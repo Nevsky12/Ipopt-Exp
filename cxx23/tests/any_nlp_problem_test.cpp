@@ -25,8 +25,10 @@ struct Counters
    int hessian_values = 0;
    int jacobian_products = 0;
    int jacobian_transpose_products = 0;
+   int jacobian_product_pairs = 0;
    int hessian_products = 0;
    bool fail_jacobian_values = false;
+   bool fail_jacobian_product_pair = false;
    bool fail_hessian_values = false;
 };
 
@@ -187,6 +189,43 @@ struct ForwardOnlyModel : FallbackModel
    }
 };
 
+struct FusedNativeModel : NativeModel
+{
+   explicit FusedNativeModel(std::shared_ptr<Counters> counters)
+      : NativeModel{{std::move(counters)}}
+   {
+   }
+
+   EvaluationResult eval_jacobian_products(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      ++counters->jacobian_product_pairs;
+      forward_result[0] = 12345.;
+      transpose_result[0] = 23456.;
+      if( counters->fail_jacobian_product_pair )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::model_failure,
+            "model rejected fused Jacobian products"
+         });
+      }
+      forward_result[0] =
+         (2. + x[0]) * forward_direction[0] - forward_direction[2];
+      forward_result[1] =
+         3. * forward_direction[1] + 4. * forward_direction[2];
+      transpose_result[0] = (2. + x[0]) * transpose_direction[0];
+      transpose_result[1] = 3. * transpose_direction[1];
+      transpose_result[2] =
+         -transpose_direction[0] + 4. * transpose_direction[1];
+      return {};
+   }
+};
+
 struct InvalidSparsityModel : FallbackModel
 {
    explicit InvalidSparsityModel(std::shared_ptr<Counters> counters)
@@ -269,6 +308,21 @@ void TestMaterializedFallback()
    CheckNear(transpose_product[1], 51., "fallback J^T*v column 1");
    CheckNear(transpose_product[2], 55., "fallback J^T*v column 2");
 
+   std::array<Number, 2> paired_forward{};
+   std::array<Number, 3> paired_transpose{};
+   const int values_before_pair = counters->jacobian_values;
+   EvaluationResult paired = problem.nlp_jacobian_products(
+      x, direction, transpose_direction, paired_forward, paired_transpose);
+   Check(paired.has_value(), "fused fallback Jacobian products failed");
+   CheckNear(paired_forward[0], 4., "fused fallback J*v row 0");
+   CheckNear(paired_forward[1], 65., "fused fallback J*v row 1");
+   CheckNear(paired_transpose[0], 39., "fused fallback J^T*v column 0");
+   CheckNear(paired_transpose[1], 51., "fused fallback J^T*v column 1");
+   CheckNear(paired_transpose[2], 55., "fused fallback J^T*v column 2");
+   Check(
+      counters->jacobian_values == values_before_pair + 1,
+      "fused fallback evaluated Jacobian values more than once");
+
    const std::array<Number, 2> multipliers{2., 3.};
    std::array<Number, 3> hessian_product{};
    EvaluationResult hessian = problem.nlp_hessian_product(
@@ -284,7 +338,7 @@ void TestMaterializedFallback()
    Check(fingerprint == fingerprint_again, "fingerprint is not stable");
    Check(counters->jacobian_structures == 1, "Jacobian structure was not cached");
    Check(counters->hessian_structures == 1, "Hessian structure was not cached");
-   Check(counters->jacobian_values == 2, "Jacobian values callback count is wrong");
+   Check(counters->jacobian_values == 3, "Jacobian values callback count is wrong");
    Check(counters->hessian_values == 1, "Hessian values callback count is wrong");
 }
 
@@ -331,6 +385,21 @@ void TestNativeAndAliasedProducts()
    CheckNear(aliased_transpose[1], 51., "aliased native J^T*v column 1");
    CheckNear(aliased_transpose[2], 55., "aliased native J^T*v column 2");
 
+   std::array<Number, 3> paired_forward{5., 7., 11.};
+   std::array<Number, 3> paired_transpose{13., 17., -1.};
+   EvaluationResult paired = problem.nlp_jacobian_products(
+      x,
+      std::span<const Number>(paired_forward),
+      std::span<const Number>(paired_transpose).first<2>(),
+      std::span<Number>(paired_forward).first<2>(),
+      paired_transpose);
+   Check(paired.has_value(), "aliased native Jacobian products failed");
+   CheckNear(paired_forward[0], 4., "aliased fused native J*v row 0");
+   CheckNear(paired_forward[1], 65., "aliased fused native J*v row 1");
+   CheckNear(paired_transpose[0], 39., "aliased fused native J^T*v column 0");
+   CheckNear(paired_transpose[1], 51., "aliased fused native J^T*v column 1");
+   CheckNear(paired_transpose[2], 55., "aliased fused native J^T*v column 2");
+
    std::array<Number, 3> fully_aliased_hessian{1., 2., 3.};
    EvaluationResult hessian = problem.nlp_hessian_product(
       std::span<const Number>(fully_aliased_hessian),
@@ -343,14 +412,62 @@ void TestNativeAndAliasedProducts()
    CheckNear(fully_aliased_hessian[1], 6., "fully aliased native H*v component 1");
    CheckNear(fully_aliased_hessian[2], 10.5, "fully aliased native H*v component 2");
 
-   Check(counters->jacobian_products == 2, "native Jacobian product callback count is wrong");
+   Check(counters->jacobian_products == 3, "native Jacobian product callback count is wrong");
    Check(
-      counters->jacobian_transpose_products == 1,
+      counters->jacobian_transpose_products == 2,
       "native transpose product callback count is wrong");
    Check(counters->hessian_products == 1, "native Hessian product callback count is wrong");
    Check(
       counters->jacobian_values == 0 && counters->hessian_values == 0,
       "native products unexpectedly materialized derivatives");
+}
+
+void TestNativeFusedProducts()
+{
+   const auto counters = std::make_shared<Counters>();
+   AnyNlpProblem problem = MakeNlpProblem(FusedNativeModel{counters});
+   const std::array<Number, 3> x{1., 2., 3.};
+   const std::array<Number, 3> forward_direction{5., 7., 11.};
+   const std::array<Number, 2> transpose_direction{13., 17.};
+   std::array<Number, 2> forward_result{};
+   std::array<Number, 3> transpose_result{};
+   Check(
+      problem.nlp_jacobian_products(
+         x, forward_direction, transpose_direction,
+         forward_result, transpose_result).has_value(),
+      "native fused Jacobian products failed");
+   CheckNear(forward_result[0], 4., "native fused J*v row 0");
+   CheckNear(forward_result[1], 65., "native fused J*v row 1");
+   CheckNear(transpose_result[0], 39., "native fused J^T*v column 0");
+   CheckNear(transpose_result[1], 51., "native fused J^T*v column 1");
+   CheckNear(transpose_result[2], 55., "native fused J^T*v column 2");
+   Check(
+      counters->jacobian_product_pairs == 1 &&
+         counters->jacobian_products == 0 &&
+         counters->jacobian_transpose_products == 0 &&
+         counters->jacobian_values == 0,
+      "native fused dispatch used an individual or materialized path");
+
+   counters->fail_jacobian_product_pair = true;
+   std::array<Number, 2> untouched_forward{101., 102.};
+   std::array<Number, 3> untouched_transpose{103., 104., 105.};
+   const EvaluationResult failure = problem.nlp_jacobian_products(
+      x, forward_direction, transpose_direction,
+      untouched_forward, untouched_transpose);
+   Check(!failure.has_value(), "native fused Jacobian product failure was ignored");
+   Check(
+      failure.error().code == EvaluationErrorCode::model_failure,
+      "native fused failure returned the wrong error code");
+   Check(
+      untouched_forward == std::array<Number, 2>{101., 102.} &&
+         untouched_transpose == std::array<Number, 3>{103., 104., 105.},
+      "failed native fused Jacobian products modified an output");
+   Check(
+      counters->jacobian_product_pairs == 2 &&
+         counters->jacobian_products == 0 &&
+         counters->jacobian_transpose_products == 0 &&
+         counters->jacobian_values == 0,
+      "failed native fused dispatch used an individual or materialized path");
 }
 
 void TestErrorsAndFingerprintRevision()
@@ -375,6 +492,35 @@ void TestErrorsAndFingerprintRevision()
    Check(
       failure.error().code == EvaluationErrorCode::model_failure,
       "model failure returned the wrong error code");
+
+   const std::array<Number, 2> transpose_direction{4., 5.};
+   std::array<Number, 2> untouched_forward{201., 202.};
+   std::array<Number, 3> untouched_transpose{203., 204., 205.};
+   const EvaluationResult paired_failure = problem.nlp_jacobian_products(
+      x, direction, transpose_direction,
+      untouched_forward, untouched_transpose);
+   Check(!paired_failure.has_value(), "fused model failure was ignored");
+   Check(
+      untouched_forward == std::array<Number, 2>{201., 202.} &&
+         untouched_transpose == std::array<Number, 3>{203., 204., 205.},
+      "failed fused Jacobian products modified an output");
+
+   counters->fail_jacobian_values = false;
+   std::array<Number, 4> overlapping_results{301., 302., 303., 304.};
+   const std::array<Number, 4> overlapping_before = overlapping_results;
+   const int values_before_overlap = counters->jacobian_values;
+   const EvaluationResult overlap = problem.nlp_jacobian_products(
+      x, direction, transpose_direction,
+      std::span<Number>(overlapping_results).first<2>(),
+      std::span<Number>(overlapping_results).subspan<1, 3>());
+   Check(!overlap.has_value(), "overlapping fused product outputs were accepted");
+   Check(
+      overlap.error().code == EvaluationErrorCode::overlapping_outputs,
+      "overlapping fused outputs returned the wrong error code");
+   Check(
+      overlapping_results == overlapping_before &&
+         counters->jacobian_values == values_before_overlap,
+      "fused output-overlap validation modified state or called the model");
 
    counters->fail_hessian_values = true;
    const std::array<Number, 2> multipliers{2., 3.};
@@ -488,11 +634,23 @@ void TestPartialNativeCapability()
       problem.nlp_jacobian_transpose_product(
          x, transpose_direction, transpose_product).has_value(),
       "partial native fallback transpose product failed");
+   std::array<Number, 2> paired_product{};
+   std::array<Number, 3> paired_transpose{};
    Check(
-      counters->jacobian_products == 1,
+      problem.nlp_jacobian_products(
+         x, direction, transpose_direction,
+         paired_product, paired_transpose).has_value(),
+      "partial native fused products failed");
+   CheckNear(paired_product[0], 4., "partial fused J*v row 0");
+   CheckNear(paired_product[1], 65., "partial fused J*v row 1");
+   CheckNear(paired_transpose[0], 39., "partial fused J^T*v column 0");
+   CheckNear(paired_transpose[1], 51., "partial fused J^T*v column 1");
+   CheckNear(paired_transpose[2], 55., "partial fused J^T*v column 2");
+   Check(
+      counters->jacobian_products == 2,
       "partial capability missed the native forward path");
    Check(
-      counters->jacobian_values == 1,
+      counters->jacobian_values == 2,
       "partial capability missed the transpose fallback path");
 }
 
@@ -733,6 +891,7 @@ int main()
    {
       TestMaterializedFallback();
       TestNativeAndAliasedProducts();
+      TestNativeFusedProducts();
       TestErrorsAndFingerprintRevision();
       TestBorrowedProblemRetainsOwnerCaches();
       TestPartialNativeCapability();

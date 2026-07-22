@@ -7,6 +7,7 @@
 
 #include <ipopt/cxx23/bordered_stage_structured_nlp.hpp>
 #include <ipopt/cxx23/primal_dual_kkt_operator.hpp>
+#include <ipopt/cxx23/sparse_derivative_scatter.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -133,15 +134,6 @@ public:
             "sparse bordered provider received nonfinite derivatives");
       }
 
-      std::ranges::fill(buffers.stage_hessians, 0.);
-      std::ranges::fill(buffers.cross_stage_hessians, 0.);
-      std::ranges::fill(buffers.local_global_hessians, 0.);
-      std::ranges::fill(buffers.global_hessian, 0.);
-      std::ranges::fill(buffers.dynamics_jacobians_transposed, 0.);
-      std::ranges::fill(buffers.dynamics_next_state_jacobians, 0.);
-      std::ranges::fill(buffers.path_equality_jacobians_transposed, 0.);
-      std::ranges::fill(buffers.path_inequality_jacobians_transposed, 0.);
-      std::ranges::fill(buffers.global_jacobians_transposed, 0.);
       ScatterValues(
          stage_hessian_scatter_, hessian_values_, buffers.stage_hessians);
       ScatterValues(
@@ -174,15 +166,16 @@ public:
          global_jacobian_scatter_,
          jacobian_values_,
          buffers.global_jacobians_transposed);
-      if( !AllFinite(buffers.stage_hessians) ||
-          !AllFinite(buffers.cross_stage_hessians) ||
-          !AllFinite(buffers.local_global_hessians) ||
-          !AllFinite(buffers.global_hessian) ||
-          !AllFinite(buffers.dynamics_jacobians_transposed) ||
-          !AllFinite(buffers.dynamics_next_state_jacobians) ||
-          !AllFinite(buffers.path_equality_jacobians_transposed) ||
-          !AllFinite(buffers.path_inequality_jacobians_transposed) ||
-          !AllFinite(buffers.global_jacobians_transposed) )
+      if( !all_scatter_targets_unique_ &&
+          (!AllFinite(buffers.stage_hessians) ||
+           !AllFinite(buffers.cross_stage_hessians) ||
+           !AllFinite(buffers.local_global_hessians) ||
+           !AllFinite(buffers.global_hessian) ||
+           !AllFinite(buffers.dynamics_jacobians_transposed) ||
+           !AllFinite(buffers.dynamics_next_state_jacobians) ||
+           !AllFinite(buffers.path_equality_jacobians_transposed) ||
+           !AllFinite(buffers.path_inequality_jacobians_transposed) ||
+           !AllFinite(buffers.global_jacobians_transposed)) )
       {
          return Failure(
             EvaluationErrorCode::nonfinite_output,
@@ -222,11 +215,7 @@ private:
       Index local = 0;
    };
 
-   struct Scatter
-   {
-      Index source = 0;
-      Index target = 0;
-   };
+   using ScatterPlan = detail::SparseDerivativeScatterPlan;
 
    static EvaluationResult Failure(
       EvaluationErrorCode code,
@@ -251,15 +240,22 @@ private:
    }
 
    static void ScatterValues(
-      std::span<const Scatter> scatter,
-      std::span<const Number>  source,
-      std::span<Number>        target
+      const ScatterPlan&      scatter,
+      std::span<const Number> source,
+      std::span<Number>       target
    ) noexcept
    {
-      for( const Scatter entry : scatter )
+      scatter.write(source, target);
+   }
+
+   bool PrepareScatterPlan(ScatterPlan& scatter, Index target_size)
+   {
+      if( !scatter.prepare(target_size) )
       {
-         target[entry.target] += source[entry.source];
+         Fail("sparse bordered scatter target is out of range");
+         return false;
       }
+      return true;
    }
 
    bool ConfigureCoordinates(
@@ -494,7 +490,7 @@ private:
             const Index offset = constraint.kind == ConstraintKind::path_equality
                ? topology_.path_equality_jacobian_offsets()[stage]
                : topology_.path_inequality_jacobian_offsets()[stage];
-            std::vector<Scatter>& scatter =
+            ScatterPlan& scatter =
                constraint.kind == ConstraintKind::path_equality
                ? path_equality_scatter_
                : path_inequality_scatter_;
@@ -583,21 +579,59 @@ private:
       {
          return;
       }
+      const BorderedStageDerivativeStorage storage =
+         topology_.derivative_storage();
+      if( !PrepareScatterPlan(
+             stage_hessian_scatter_, storage.stage_hessians) ||
+          !PrepareScatterPlan(
+             cross_stage_hessian_scatter_, storage.cross_stage_hessians) ||
+          !PrepareScatterPlan(
+             local_global_hessian_scatter_, storage.local_global_hessians) ||
+          !PrepareScatterPlan(
+             global_hessian_scatter_, storage.global_hessian) ||
+          !PrepareScatterPlan(
+             dynamics_scatter_, storage.dynamics_jacobians_transposed) ||
+          !PrepareScatterPlan(
+             dynamics_next_state_scatter_,
+             storage.dynamics_next_state_jacobians) ||
+          !PrepareScatterPlan(
+             path_equality_scatter_,
+             storage.path_equality_jacobians_transposed) ||
+          !PrepareScatterPlan(
+             path_inequality_scatter_,
+             storage.path_inequality_jacobians_transposed) ||
+          !PrepareScatterPlan(
+             global_jacobian_scatter_,
+             storage.global_jacobians_transposed) )
+      {
+         return;
+      }
+      all_scatter_targets_unique_ =
+         stage_hessian_scatter_.unique_targets() &&
+         cross_stage_hessian_scatter_.unique_targets() &&
+         local_global_hessian_scatter_.unique_targets() &&
+         global_hessian_scatter_.unique_targets() &&
+         dynamics_scatter_.unique_targets() &&
+         dynamics_next_state_scatter_.unique_targets() &&
+         path_equality_scatter_.unique_targets() &&
+         path_inequality_scatter_.unique_targets() &&
+         global_jacobian_scatter_.unique_targets();
       hessian_values_.resize(source.hessian_nonzeros);
       jacobian_values_.resize(source.jacobian_nonzeros);
    }
 
    BorderedStageNlpTopology topology_;
    StructureFingerprint kkt_fingerprint_{0, 0};
-   std::vector<Scatter> stage_hessian_scatter_;
-   std::vector<Scatter> cross_stage_hessian_scatter_;
-   std::vector<Scatter> local_global_hessian_scatter_;
-   std::vector<Scatter> global_hessian_scatter_;
-   std::vector<Scatter> dynamics_scatter_;
-   std::vector<Scatter> dynamics_next_state_scatter_;
-   std::vector<Scatter> path_equality_scatter_;
-   std::vector<Scatter> path_inequality_scatter_;
-   std::vector<Scatter> global_jacobian_scatter_;
+   ScatterPlan stage_hessian_scatter_;
+   ScatterPlan cross_stage_hessian_scatter_;
+   ScatterPlan local_global_hessian_scatter_;
+   ScatterPlan global_hessian_scatter_;
+   ScatterPlan dynamics_scatter_;
+   ScatterPlan dynamics_next_state_scatter_;
+   ScatterPlan path_equality_scatter_;
+   ScatterPlan path_inequality_scatter_;
+   ScatterPlan global_jacobian_scatter_;
+   bool all_scatter_targets_unique_ = false;
    std::vector<Number> hessian_values_;
    std::vector<Number> jacobian_values_;
    std::string configuration_error_;

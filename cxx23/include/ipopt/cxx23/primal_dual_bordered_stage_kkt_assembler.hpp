@@ -145,6 +145,7 @@ public:
       std::span<Number>          rhs
    )
    {
+      validated_complementarity_revision_ = 0;
       if( !configuration_error_.empty() )
       {
          return AssemblyFailure(
@@ -227,15 +228,49 @@ public:
       const BorderedStageNlpTopology& topology = derivatives_.topology();
       const BorderedStageDerivativeView derivative = derivatives_.current_view();
       const Index global_size = layout_.border_dimension;
-      std::ranges::copy(
-         derivative.global_hessian, border_diagonal.begin());
-      for( Index global = 0; global < global_size; ++global )
+      // Fold the edge-once primal-Hessian scan into the matrix copies while
+      // retaining both asymmetric orientations for an independent rejection.
+      const bool prepare_inertia = CanCertifyReducedInertia(regularization);
+      bool inertia_symmetric = true;
+      Number* const off_diagonal = inertia_off_diagonal_work_.data();
+      if( prepare_inertia )
       {
-         border_diagonal[global * global_size + global] += regularization.x;
+         std::ranges::fill(inertia_off_diagonal_work_, 0.);
+      }
+      const std::span<const Index> global_primals =
+         topology.global_primal_variables();
+      for( Index row = 0; row < global_size; ++row )
+      {
+         const Index diagonal_offset = row * global_size + row;
+         border_diagonal[diagonal_offset] =
+            derivative.global_hessian[diagonal_offset];
+         border_diagonal[diagonal_offset] += regularization.x;
+         for( Index column = 0; column < row; ++column )
+         {
+            const Number forward =
+               derivative.global_hessian[row * global_size + column];
+            const Number transpose =
+               derivative.global_hessian[column * global_size + row];
+            border_diagonal[row * global_size + column] = forward;
+            border_diagonal[column * global_size + row] = transpose;
+            if( prepare_inertia )
+            {
+               inertia_symmetric =
+                  inertia_symmetric && forward == transpose;
+               const Number magnitude = std::abs(forward);
+               off_diagonal[global_primals[row]] += magnitude;
+               off_diagonal[global_primals[column]] += magnitude;
+            }
+         }
       }
 
-      for( Index stage = 0; stage < topology.stages().size(); ++stage )
+      for( Index position = 0;
+           position < topology.stages().size();
+           ++position )
       {
+         const Index stage = options_.reverse_stage_order
+            ? topology.stages().size() - 1 - position
+            : position;
          const OptimalControlStageDimensions dimensions = topology.stages()[stage];
          const Index primal_size = dimensions.controls + dimensions.states;
          const Index slack_offset = primal_size;
@@ -250,27 +285,44 @@ public:
 
          const Number* hessian =
             derivative.stage_hessians.data() + topology.hessian_offsets()[stage];
-         for( Index row = 0; row < primal_size; ++row )
-         {
-            for( Index column = 0; column < primal_size; ++column )
-            {
-               block[row * block_size + column] =
-                  hessian[row * primal_size + column];
-            }
-            block[row * block_size + row] += regularization.x;
-         }
          const Number* local_global =
             derivative.local_global_hessians.data() +
             topology.local_global_hessian_offsets()[stage];
          const Index primal_begin = topology.primal_offsets()[stage];
-         for( Index local = 0; local < primal_size; ++local )
+         for( Index row = 0; row < primal_size; ++row )
          {
-            const Index generic = topology.ordering().primal[primal_begin + local];
-            const Index structured = primal_structured_positions_[generic];
+            const Index diagonal_offset = row * block_size + row;
+            block[diagonal_offset] = hessian[row * primal_size + row];
+            block[diagonal_offset] += regularization.x;
+            const Index row_generic =
+               topology.ordering().primal[primal_begin + row];
+            for( Index column = 0; column < row; ++column )
+            {
+               const Number forward = hessian[row * primal_size + column];
+               const Number transpose = hessian[column * primal_size + row];
+               block[row * block_size + column] = forward;
+               block[column * block_size + row] = transpose;
+               if( prepare_inertia )
+               {
+                  inertia_symmetric =
+                     inertia_symmetric && forward == transpose;
+                  const Number magnitude = std::abs(forward);
+                  off_diagonal[row_generic] += magnitude;
+                  off_diagonal[topology.ordering().primal[
+                     primal_begin + column]] += magnitude;
+               }
+            }
+            const Index structured = primal_structured_positions_[row_generic];
             for( Index global = 0; global < global_size; ++global )
             {
-               border[structured * global_size + global] =
-                  local_global[local * global_size + global];
+               const Number value = local_global[row * global_size + global];
+               border[structured * global_size + global] = value;
+               if( prepare_inertia )
+               {
+                  const Number magnitude = std::abs(value);
+                  off_diagonal[row_generic] += magnitude;
+                  off_diagonal[global_primals[global]] += magnitude;
+               }
             }
          }
          for( Index constraint = 0;
@@ -355,26 +407,14 @@ public:
             }
             if( options_.normalize_next_state_jacobians )
             {
-               const auto write_fixed_gram = [&]<Index States>()
-               {
-                  for( Index row = 0; row < States; ++row )
-                  {
-                     for( Index column = 0; column <= row; ++column )
-                     {
-                        const Number value = -regularization.c *
-                           FixedDotProduct<States>(
-                              transform + row * States,
-                              transform + column * States);
-                        block[(incoming_offset + row) * block_size +
-                              incoming_offset + column] = value;
-                        block[(incoming_offset + column) * block_size +
-                              incoming_offset + row] = value;
-                     }
-                  }
-               };
                if( next_states == 4 )
                {
-                  write_fixed_gram.template operator()<4>();
+                  WriteFourStateGram(
+                     regularization.c,
+                     transform,
+                     incoming_offset,
+                     block_size,
+                     block);
                }
                else
                {
@@ -406,94 +446,114 @@ public:
                      -regularization.c;
                }
             }
-            const OptimalControlStageDimensions previous =
-               topology.stages()[transition];
-            const Index previous_primal = previous.controls + previous.states;
-            const Index previous_block_size = physical_block_sizes_[transition];
-            Number* lower_block = lower.data() + lower_offsets_[transition];
-            const Number* cross_hessian =
-               derivative.cross_stage_hessians.data() +
-               topology.cross_stage_hessian_offsets()[transition];
-            for( Index next = 0; next < primal_size; ++next )
+         }
+      }
+
+      // Preserve transition order so that the independent-inertia sums retain
+      // their original floating-point accumulation order.
+      for( Index transition = 0;
+           transition + 1 < topology.stages().size();
+           ++transition )
+      {
+         const OptimalControlStageDimensions previous =
+            topology.stages()[transition];
+         const OptimalControlStageDimensions next =
+            topology.stages()[transition + 1];
+         const Index previous_primal = previous.controls + previous.states;
+         const Index next_primal = next.controls + next.states;
+         const Index previous_block_size = physical_block_sizes_[transition];
+         const Index next_block_size = physical_block_sizes_[transition + 1];
+         const Index incoming_offset = next_primal +
+            next.path_inequalities + next.path_equalities +
+            next.path_inequalities;
+         Number* lower_block = lower.data() + lower_offsets_[transition];
+         const Number* cross_hessian =
+            derivative.cross_stage_hessians.data() +
+            topology.cross_stage_hessian_offsets()[transition];
+         const Index previous_begin = topology.primal_offsets()[transition];
+         const Index next_begin = topology.primal_offsets()[transition + 1];
+         for( Index next_variable = 0;
+              next_variable < next_primal;
+              ++next_variable )
+         {
+            const Index next_generic =
+               topology.ordering().primal[next_begin + next_variable];
+            for( Index previous_variable = 0;
+                 previous_variable < previous_primal;
+                 ++previous_variable )
             {
-               for( Index previous_variable = 0;
-                    previous_variable < previous_primal;
-                    ++previous_variable )
+               const Number value = cross_hessian[
+                  next_variable * previous_primal + previous_variable];
+               if( options_.reverse_stage_order )
                {
-                  const Number value =
-                     cross_hessian[next * previous_primal + previous_variable];
-                  if( options_.reverse_stage_order )
+                  lower_block[
+                     previous_variable * next_block_size + next_variable] =
+                     value;
+               }
+               else
+               {
+                  lower_block[
+                     next_variable * previous_block_size + previous_variable] =
+                     value;
+               }
+               if( prepare_inertia )
+               {
+                  const Number magnitude = std::abs(value);
+                  off_diagonal[next_generic] += magnitude;
+                  off_diagonal[topology.ordering().primal[
+                     previous_begin + previous_variable]] += magnitude;
+               }
+            }
+         }
+
+         const Index next_states = next.states;
+         const Number* dynamics =
+            derivative.dynamics_jacobians_transposed.data() +
+            topology.dynamics_jacobian_offsets()[transition];
+         const Number* transform = dynamics_transforms_.data() +
+            topology.dynamics_next_state_jacobian_offsets()[transition];
+         if( options_.normalize_next_state_jacobians && next_states == 4 )
+         {
+            WriteFourStateNormalizedDynamics(
+               dynamics,
+               transform,
+               previous_primal,
+               previous_block_size,
+               incoming_offset,
+               next_block_size,
+               options_.reverse_stage_order,
+               lower_block);
+         }
+         else
+         {
+            for( Index variable = 0; variable < previous_primal; ++variable )
+            {
+               for( Index state = 0; state < next_states; ++state )
+               {
+                  Number value = 0.;
+                  if( options_.normalize_next_state_jacobians )
                   {
-                     lower_block[previous_variable * block_size + next] = value;
+                     for( Index original = 0;
+                          original < next_states;
+                          ++original )
+                     {
+                        value += dynamics[variable * next_states + original] *
+                           transform[state * next_states + original];
+                     }
                   }
                   else
                   {
-                     lower_block[next * previous_block_size +
-                                 previous_variable] = value;
+                     value = dynamics[variable * next_states + state];
                   }
-               }
-            }
-            const Number* dynamics =
-               derivative.dynamics_jacobians_transposed.data() +
-               topology.dynamics_jacobian_offsets()[transition];
-            const auto write_fixed_normalized_dynamics = [&]<Index States>()
-            {
-               for( Index variable = 0; variable < previous_primal; ++variable )
-               {
-                  for( Index state = 0; state < States; ++state )
+                  if( options_.reverse_stage_order )
                   {
-                     const Number value = FixedDotProduct<States>(
-                        dynamics + variable * States,
-                        transform + state * States);
-                     if( options_.reverse_stage_order )
-                     {
-                        lower_block[variable * block_size +
-                                    incoming_offset + state] = value;
-                     }
-                     else
-                     {
-                        lower_block[(incoming_offset + state) *
-                                       previous_block_size + variable] = value;
-                     }
+                     lower_block[variable * next_block_size +
+                                 incoming_offset + state] = value;
                   }
-               }
-            };
-            if( options_.normalize_next_state_jacobians && next_states == 4 )
-            {
-               write_fixed_normalized_dynamics.template operator()<4>();
-            }
-            else
-            {
-               for( Index variable = 0; variable < previous_primal; ++variable )
-               {
-                  for( Index state = 0; state < dimensions.states; ++state )
+                  else
                   {
-                     Number value = 0.;
-                     if( options_.normalize_next_state_jacobians )
-                     {
-                        for( Index original = 0;
-                             original < next_states;
-                             ++original )
-                        {
-                           value +=
-                              dynamics[variable * next_states + original] *
-                              transform[state * next_states + original];
-                        }
-                     }
-                     else
-                     {
-                        value = dynamics[variable * next_states + state];
-                     }
-                     if( options_.reverse_stage_order )
-                     {
-                        lower_block[variable * block_size +
-                                    incoming_offset + state] = value;
-                     }
-                     else
-                     {
-                        lower_block[(incoming_offset + state) *
-                                       previous_block_size + variable] = value;
-                     }
+                     lower_block[(incoming_offset + state) *
+                                    previous_block_size + variable] = value;
                   }
                }
             }
@@ -659,7 +719,11 @@ public:
          ? StageStructuredInertiaRetryHint::dual
          : StageStructuredInertiaRetryHint::primal;
       report.independent_full_inertia = CertifyReducedInertia(
-         diagonal, border, border_diagonal, regularization);
+         diagonal,
+         border_diagonal,
+         regularization,
+         inertia_symmetric);
+      validated_complementarity_revision_ = request.state.numeric_revision;
       return report;
    }
 
@@ -699,7 +763,11 @@ public:
       {
          return std::unexpected(valid.error());
       }
-      if( !ValidComplementarityState(request.state) )
+      const bool complementarity_prevalidated =
+         request.state.numeric_revision != 0 &&
+         request.state.numeric_revision == validated_complementarity_revision_;
+      if( !complementarity_prevalidated &&
+          !ValidComplementarityState(request.state) )
       {
          return std::unexpected(EvaluationError{
             EvaluationErrorCode::nonfinite_output,
@@ -722,6 +790,7 @@ public:
       const BorderedStageNlpTopology& topology = derivatives_.topology();
       if( options_.normalize_next_state_jacobians )
       {
+         const auto& dynamics_ordering = topology.ordering().dynamics;
          for( Index transition = 0;
               transition + 1 < topology.stages().size();
               ++transition )
@@ -730,23 +799,35 @@ public:
             const Index dynamics_begin = topology.dynamics_offsets()[transition];
             const Number* transform = dynamics_transforms_.data() +
                topology.dynamics_next_state_jacobian_offsets()[transition];
-            for( Index original = 0; original < next_states; ++original )
+            const Index* generic_dynamics =
+               dynamics_ordering.data() + dynamics_begin;
+            if( next_states == 4 )
             {
-               Number value = 0.;
-               for( Index normalized = 0;
-                    normalized < next_states;
-                    ++normalized )
+               ReconstructFourStateDynamics(
+                  transform,
+                  generic_dynamics,
+                  constraint_structured_positions_.data(),
+                  structured_to_full_.data(),
+                  structured_solution.data(),
+                  full_direction.data());
+            }
+            else
+            {
+               for( Index original = 0; original < next_states; ++original )
                {
-                  const Index generic_normalized = topology.ordering().dynamics[
-                     dynamics_begin + normalized];
-                  value += transform[normalized * next_states + original] *
-                     structured_solution[
-                        constraint_structured_positions_[generic_normalized]];
+                  Number value = 0.;
+                  for( Index normalized = 0;
+                       normalized < next_states;
+                       ++normalized )
+                  {
+                     value += transform[normalized * next_states + original] *
+                        structured_solution[constraint_structured_positions_[
+                           generic_dynamics[normalized]]];
+                  }
+                  full_direction[structured_to_full_[
+                     constraint_structured_positions_[
+                        generic_dynamics[original]]]] = value;
                }
-               const Index generic_original = topology.ordering().dynamics[
-                  dynamics_begin + original];
-               full_direction[structured_to_full_[
-                  constraint_structured_positions_[generic_original]]] = value;
             }
          }
       }
@@ -799,6 +880,114 @@ private:
          value += left[entry] * right[entry];
       }
       return value;
+   }
+
+   static void WriteFourStateGram(
+      Number        dual_regularization,
+      const Number* transform,
+      Index         incoming_offset,
+      Index         block_size,
+      Number*       block
+   ) noexcept
+   {
+      const auto write = [&]<Index Row, Index Column>()
+      {
+         const Number value = -dual_regularization *
+            FixedDotProduct<4>(
+               transform + Row * 4,
+               transform + Column * 4);
+         block[(incoming_offset + Row) * block_size +
+               incoming_offset + Column] = value;
+         block[(incoming_offset + Column) * block_size +
+               incoming_offset + Row] = value;
+      };
+      write.template operator()<0, 0>();
+      write.template operator()<1, 0>();
+      write.template operator()<1, 1>();
+      write.template operator()<2, 0>();
+      write.template operator()<2, 1>();
+      write.template operator()<2, 2>();
+      write.template operator()<3, 0>();
+      write.template operator()<3, 1>();
+      write.template operator()<3, 2>();
+      write.template operator()<3, 3>();
+   }
+
+   static void WriteFourStateNormalizedDynamics(
+      const Number* dynamics,
+      const Number* transform,
+      Index         previous_primal,
+      Index         previous_block_size,
+      Index         incoming_offset,
+      Index         next_block_size,
+      bool          reverse_stage_order,
+      Number*       lower_block
+   ) noexcept
+   {
+      for( Index variable = 0; variable < previous_primal; ++variable )
+      {
+         const Number* row = dynamics + variable * 4;
+         const Number state_0 = FixedDotProduct<4>(row, transform);
+         const Number state_1 = FixedDotProduct<4>(row, transform + 4);
+         const Number state_2 = FixedDotProduct<4>(row, transform + 8);
+         const Number state_3 = FixedDotProduct<4>(row, transform + 12);
+         if( reverse_stage_order )
+         {
+            Number* target = lower_block +
+               variable * next_block_size + incoming_offset;
+            target[0] = state_0;
+            target[1] = state_1;
+            target[2] = state_2;
+            target[3] = state_3;
+         }
+         else
+         {
+            lower_block[incoming_offset * previous_block_size + variable] =
+               state_0;
+            lower_block[(incoming_offset + 1) * previous_block_size + variable] =
+               state_1;
+            lower_block[(incoming_offset + 2) * previous_block_size + variable] =
+               state_2;
+            lower_block[(incoming_offset + 3) * previous_block_size + variable] =
+               state_3;
+         }
+      }
+   }
+
+   static void ReconstructFourStateDynamics(
+      const Number* transform,
+      const Index*  generic_dynamics,
+      const Index*  constraint_structured_positions,
+      const Index*  structured_to_full,
+      const Number* structured_solution,
+      Number*       full_direction
+   ) noexcept
+   {
+      const Index position_0 =
+         constraint_structured_positions[generic_dynamics[0]];
+      const Index position_1 =
+         constraint_structured_positions[generic_dynamics[1]];
+      const Index position_2 =
+         constraint_structured_positions[generic_dynamics[2]];
+      const Index position_3 =
+         constraint_structured_positions[generic_dynamics[3]];
+      const Number normalized_0 = structured_solution[position_0];
+      const Number normalized_1 = structured_solution[position_1];
+      const Number normalized_2 = structured_solution[position_2];
+      const Number normalized_3 = structured_solution[position_3];
+      const auto write = [&]<Index Original>(Index position)
+      {
+         Number value = 0.;
+         value += transform[Original] * normalized_0;
+         value += transform[4 + Original] * normalized_1;
+         value += transform[8 + Original] * normalized_2;
+         value += transform[12 + Original] * normalized_3;
+         full_direction[structured_to_full[position]] = value;
+      };
+      write.template operator()<0>(position_0);
+      write.template operator()<1>(position_1);
+      write.template operator()<2>(position_2);
+      write.template operator()<3>(position_3);
    }
 
    static bool CheckedAdd(Index left, Index right, Index& result) noexcept
@@ -1153,119 +1342,33 @@ private:
       return {};
    }
 
+   bool CanCertifyReducedInertia(
+      PrimalDualRegularization regularization
+   ) const noexcept
+   {
+      return (dimensions_.y_c == 0 || regularization.c > 0.) &&
+         (dimensions_.y_d == 0 || regularization.d > 0.);
+   }
+
    std::optional<CertifiedInertia> CertifyReducedInertia(
       std::span<const Number>   diagonal,
-      std::span<const Number>   border,
       std::span<const Number>   border_diagonal,
-      PrimalDualRegularization regularization
+      PrimalDualRegularization regularization,
+      bool                     inertia_symmetric
    ) noexcept
    {
-      if( (dimensions_.y_c != 0 && !(regularization.c > 0.)) ||
-          (dimensions_.y_d != 0 && !(regularization.d > 0.)) )
+      if( !CanCertifyReducedInertia(regularization) || !inertia_symmetric )
       {
          return std::nullopt;
       }
       constexpr Number roundoff_multiplier = 128.;
       const BorderedStageNlpTopology& topology = derivatives_.topology();
-      const BorderedStageDerivativeView derivative =
-         derivatives_.current_view();
       const Index global_size = layout_.border_dimension;
-      std::ranges::fill(inertia_off_diagonal_work_, 0.);
       Number* const off_diagonal = inertia_off_diagonal_work_.data();
       const auto stages = topology.stages();
       const auto& primal_order = topology.ordering().primal;
       const std::span<const Index> global_primals =
          topology.global_primal_variables();
-
-      // Accumulate every symmetric primal edge once into both Gershgorin rows.
-      // This retains the independent exact-equality symmetry check without
-      // scanning either orientation twice.
-      for( Index row = 0; row < global_size; ++row )
-      {
-         const Index row_generic = global_primals[row];
-         for( Index column = 0; column < row; ++column )
-         {
-            const Number forward =
-               border_diagonal[row * global_size + column];
-            const Number transpose =
-               border_diagonal[column * global_size + row];
-            if( forward != transpose )
-            {
-               return std::nullopt;
-            }
-            const Number magnitude = std::abs(forward);
-            off_diagonal[row_generic] += magnitude;
-            off_diagonal[global_primals[column]] += magnitude;
-         }
-      }
-      for( Index position = 0;
-           position < stages.size();
-           ++position )
-      {
-         const Index stage = options_.reverse_stage_order
-            ? stages.size() - 1 - position
-            : position;
-         const OptimalControlStageDimensions dimensions = stages[stage];
-         const Index primal_size = dimensions.controls + dimensions.states;
-         const Index block_size = physical_block_sizes_[stage];
-         const Number* block = diagonal.data() + diagonal_offsets_[stage];
-         const Index primal_begin = topology.primal_offsets()[stage];
-         for( Index row = 0; row < primal_size; ++row )
-         {
-            const Index row_generic =
-               primal_order[primal_begin + row];
-            for( Index column = 0; column < row; ++column )
-            {
-               const Number forward = block[row * block_size + column];
-               const Number transpose = block[column * block_size + row];
-               if( forward != transpose )
-               {
-                  return std::nullopt;
-               }
-               const Number magnitude = std::abs(forward);
-               off_diagonal[row_generic] += magnitude;
-               off_diagonal[primal_order[primal_begin + column]] += magnitude;
-            }
-            const Index structured = primal_structured_positions_[row_generic];
-            for( Index global = 0; global < global_size; ++global )
-            {
-               const Number magnitude =
-                  std::abs(border[structured * global_size + global]);
-               off_diagonal[row_generic] += magnitude;
-               off_diagonal[global_primals[global]] += magnitude;
-            }
-         }
-      }
-      for( Index transition = 0;
-           transition + 1 < stages.size();
-           ++transition )
-      {
-         const OptimalControlStageDimensions previous =
-            stages[transition];
-         const OptimalControlStageDimensions next =
-            stages[transition + 1];
-         const Index previous_size = previous.controls + previous.states;
-         const Index next_size = next.controls + next.states;
-         const Index previous_begin = topology.primal_offsets()[transition];
-         const Index next_begin = topology.primal_offsets()[transition + 1];
-         const Number* cross = derivative.cross_stage_hessians.data() +
-            topology.cross_stage_hessian_offsets()[transition];
-         for( Index next_row = 0; next_row < next_size; ++next_row )
-         {
-            const Index next_generic =
-               primal_order[next_begin + next_row];
-            for( Index previous_column = 0;
-                 previous_column < previous_size;
-                 ++previous_column )
-            {
-               const Number magnitude = std::abs(
-                  cross[next_row * previous_size + previous_column]);
-               off_diagonal[next_generic] += magnitude;
-               off_diagonal[primal_order[
-                  previous_begin + previous_column]] += magnitude;
-            }
-         }
-      }
 
       for( Index stage = 0; stage < stages.size(); ++stage )
       {
@@ -1785,6 +1888,7 @@ private:
       normalization_matrix_work_.resize(normalization_values);
       normalization_inverse_work_.resize(normalization_values);
       inertia_off_diagonal_work_.resize(dimensions_.x);
+      layout_.full_direction_overwrite_certified = true;
    }
 
    PreparedBorderedStageDerivativeProvider<Provider> derivatives_;
@@ -1822,6 +1926,7 @@ private:
    std::string configuration_error_;
    bool derivatives_cached_ = false;
    std::uint64_t cached_numeric_revision_ = 0;
+   std::uint64_t validated_complementarity_revision_ = 0;
    Number* reusable_diagonal_ = nullptr;
    Number* reusable_lower_ = nullptr;
    Number* reusable_border_ = nullptr;

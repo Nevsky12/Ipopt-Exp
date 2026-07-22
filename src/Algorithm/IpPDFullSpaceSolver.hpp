@@ -14,6 +14,46 @@
 namespace Ipopt
 {
 
+enum PDFullSpaceSolverRefinementMethod
+{
+   PDFULLSPACE_ITERATIVE_REFINEMENT,
+   PDFULLSPACE_FGMRES_KDELTA,
+   PDFULLSPACE_FGMRES_K
+};
+
+/** Work and convergence counters for the full-space refinement phase. */
+struct IPOPTLIB_EXPORT PDFullSpaceSolverRefinementStatistics
+{
+   PDFullSpaceSolverRefinementStatistics();
+
+   void Reset();
+
+   Index solve_calls;
+   Index direct_solve_calls;
+   Index factorization_attempts;
+   Index refinement_phases;
+   Index refinement_iterations;
+   Index refinement_backsolves;
+   Index kkt_applications;
+   Index converged_refinements;
+   Index failed_refinements;
+   Index quality_improvements;
+   Index singularity_retries;
+   Index preconditioner_cache_misses;
+   Number refinement_wallclock_time;
+   Number maximum_initial_residual_ratio;
+   Number maximum_final_residual_ratio;
+   Number maximum_delta_x;
+   Number maximum_delta_s;
+   Number maximum_delta_c;
+   Number maximum_delta_d;
+   Number last_initial_residual_ratio;
+   Number last_final_residual_ratio;
+};
+
+class PDFullSpaceSolverData;
+class PDFullSpaceSolverSystem;
+
 /** This is the implementation of the Primal-Dual System, using the
  *  full space approach with a direct linear solver.
  *
@@ -71,6 +111,14 @@ public:
    {
       return *augSysSolver_;
    }
+
+   /** Statistics for the selected full-system refinement implementation. */
+   const PDFullSpaceSolverRefinementStatistics& RefinementStatistics() const;
+
+   /** Reset refinement statistics without changing the current factorization. */
+   void ResetRefinementStatistics();
+
+   PDFullSpaceSolverRefinementMethod RefinementMethod() const;
 
    /** Methods for IpoptType */
    ///@{
@@ -150,6 +198,9 @@ private:
    bool neg_curv_test_reg_;
    ///@}
 
+   /** ABI-neutral lookup of the experimental per-instance refinement state. */
+   PDFullSpaceSolverData& RefinementData() const;
+
    /** Internal function for a single backsolve (which will be used
     *  for iterative refinement on the outside).
     *
@@ -183,32 +234,41 @@ private:
       IteratesVector&       res
    );
 
+   /** Apply the already factorized K_delta as a right preconditioner. */
+   bool SolveWithCurrentFactorization(
+      const PDFullSpaceSolverSystem& system,
+      const IteratesVector&          rhs,
+      IteratesVector&                res
+   );
+
+   /** Run restarted right-preconditioned FGMRES from the direct step x_0. */
+   bool SolveWithFgmres(
+      const PDFullSpaceSolverSystem& system,
+      const IteratesVector&          rhs,
+      IteratesVector&                res,
+      IteratesVector&                resid,
+      Number&                        residual_ratio,
+      Index&                         num_iterations,
+      bool&                          refinement_failed
+   );
+
+   /** Apply either the perturbed or unperturbed full primal-dual KKT. */
+   void ApplyKKT(
+      const PDFullSpaceSolverSystem& system,
+      bool                           include_perturbation,
+      const IteratesVector&          input,
+      IteratesVector&                output
+   );
+
    /** Internal function for computing the residual (resid) given the
     * right hand side (rhs) and the solution of the system (res).
     */
    void ComputeResiduals(
-      const SymMatrix&      W,
-      const Matrix&         J_c,
-      const Matrix&         J_d,
-      const Matrix&         Px_L,
-      const Matrix&         Px_U,
-      const Matrix&         Pd_L,
-      const Matrix&         Pd_U,
-      const Vector&         z_L,
-      const Vector&         z_U,
-      const Vector&         v_L,
-      const Vector&         v_U,
-      const Vector&         slack_x_L,
-      const Vector&         slack_x_U,
-      const Vector&         slack_s_L,
-      const Vector&         slack_s_U,
-      const Vector&         sigma_x,
-      const Vector&         sigma_s,
-      Number                alpha,
-      Number                beta,
-      const IteratesVector& rhs,
-      const IteratesVector& res,
-      IteratesVector&       resid
+      const PDFullSpaceSolverSystem& system,
+      bool                           include_perturbation,
+      const IteratesVector&          rhs,
+      const IteratesVector&          res,
+      IteratesVector&                resid
    );
 
    /** Internal function for computing the ratio of the residual

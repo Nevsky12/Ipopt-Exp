@@ -293,6 +293,54 @@ SparseBorderedStageDerivativeProvider MakeDetachedProvider()
    return SparseBorderedStageDerivativeProvider(exemplar, MakeTopology());
 }
 
+struct BorderedDerivativeBufferStorage
+{
+   explicit BorderedDerivativeBufferStorage(
+      BorderedStageDerivativeStorage storage,
+      Number                         initial
+   )
+      : stage_hessians(storage.stage_hessians, initial),
+        cross_stage_hessians(storage.cross_stage_hessians, initial),
+        local_global_hessians(storage.local_global_hessians, initial),
+        global_hessian(storage.global_hessian, initial),
+        dynamics(storage.dynamics_jacobians_transposed, initial),
+        next_state(storage.dynamics_next_state_jacobians, initial),
+        path_equalities(
+           storage.path_equality_jacobians_transposed, initial),
+        path_inequalities(
+           storage.path_inequality_jacobians_transposed, initial),
+        global_jacobians(storage.global_jacobians_transposed, initial)
+   {
+   }
+
+   BorderedStageDerivativeBuffers buffers()
+   {
+      return {
+         stage_hessians,
+         cross_stage_hessians,
+         local_global_hessians,
+         global_hessian,
+         dynamics,
+         next_state,
+         path_equalities,
+         path_inequalities,
+         global_jacobians
+      };
+   }
+
+   bool operator==(const BorderedDerivativeBufferStorage&) const = default;
+
+   std::vector<Number> stage_hessians;
+   std::vector<Number> cross_stage_hessians;
+   std::vector<Number> local_global_hessians;
+   std::vector<Number> global_hessian;
+   std::vector<Number> dynamics;
+   std::vector<Number> next_state;
+   std::vector<Number> path_equalities;
+   std::vector<Number> path_inequalities;
+   std::vector<Number> global_jacobians;
+};
+
 struct StateStorage
 {
    std::array<Number, 7> x{{.1, -.2, .3, -.15, .4, .2, -.35}};
@@ -410,6 +458,7 @@ BorderedStageNlpTopology MakeFourStateNormalizationTopology()
 struct FourStateNormalizationProvider
 {
    bool singular = false;
+   bool asymmetric_hessian = false;
    BorderedStageNlpTopology topology = MakeFourStateNormalizationTopology();
 
    static constexpr std::array<Number, 16> pivoted_matrix{{
@@ -445,6 +494,20 @@ struct FourStateNormalizationProvider
       std::ranges::fill(buffers.path_equality_jacobians_transposed, 0.);
       std::ranges::fill(buffers.path_inequality_jacobians_transposed, 0.);
       std::ranges::fill(buffers.global_jacobians_transposed, 0.);
+      if( asymmetric_hessian )
+      {
+         for( Index stage_offset : {Index{0}, Index{16}} )
+         {
+            for( Index diagonal = 0; diagonal < 4; ++diagonal )
+            {
+               buffers.stage_hessians[
+                  stage_offset + diagonal * 4 + diagonal] = 2.;
+            }
+         }
+         buffers.stage_hessians[1] = .1;
+         buffers.stage_hessians[4] = .2;
+         buffers.global_hessian[0] = 2.;
+      }
       for( Index state = 0; state < 4; ++state )
       {
          buffers.dynamics_jacobians_transposed[state * 4 + state] = 1.;
@@ -504,21 +567,77 @@ constexpr std::array<Number, 23> kRhs{{
 }};
 
 void CheckTrueResidual(
+   PrimalDualKktOperator&    kkt,
+   PrimalDualState           state,
+   std::span<const Number>   direction,
+   PrimalDualRegularization  regularization,
+   std::span<const Number>   rhs
+)
+{
+   state.regularization = regularization;
+   std::array<Number, 23> applied{};
+   Check(
+      kkt.apply_flat(state, direction, applied).has_value(),
+      "bordered direction could not be applied to the full KKT");
+   for( Index row = 0; row < rhs.size(); ++row )
+   {
+      CheckNear(applied[row], rhs[row], "bordered direction fails full KKT");
+   }
+}
+
+void CheckTrueResidual(
    PrimalDualKktOperator&           kkt,
    PrimalDualState                  state,
    const CandidateFirstSolveResult& result,
    std::span<const Number>          rhs
 )
 {
-   state.regularization = result.accepted_regularization;
-   std::array<Number, 23> applied{};
+   CheckTrueResidual(
+      kkt, state, result.direction, result.accepted_regularization, rhs);
+}
+
+void TestSparseDerivativeScatterPlan()
+{
+   detail::SparseDerivativeScatterPlan unique;
+   unique.push_back({0, 1});
+   unique.push_back({1, 3});
    Check(
-      kkt.apply_flat(state, result.direction, applied).has_value(),
-      "bordered direction could not be applied to the full KKT");
-   for( Index row = 0; row < rhs.size(); ++row )
-   {
-      CheckNear(applied[row], rhs[row], "bordered direction fails full KKT");
-   }
+      unique.prepare(5) && unique.unique_targets(),
+      "unique sparse derivative scatter plan was not recognized");
+   const std::array<Number, 2> unique_source{{1.25, -Number{0.}}};
+   std::array<Number, 5> unique_target;
+   std::ranges::fill(
+      unique_target, std::numeric_limits<Number>::quiet_NaN());
+   unique.write(unique_source, unique_target);
+   Number reference_zero = 0.;
+   reference_zero += -Number{0.};
+   Check(
+      unique_target[0] == 0. && unique_target[1] == 1.25 &&
+         unique_target[2] == 0. && unique_target[3] == 0. &&
+         std::signbit(unique_target[3]) == std::signbit(reference_zero) &&
+         unique_target[4] == 0.,
+      "unique sparse derivative scatter did not overwrite dirty storage");
+
+   detail::SparseDerivativeScatterPlan duplicate;
+   duplicate.push_back({0, 1});
+   duplicate.push_back({1, 1});
+   Check(
+      duplicate.prepare(3) && !duplicate.unique_targets(),
+      "duplicate sparse derivative target was treated as unique");
+   const std::array<Number, 2> duplicate_source{{1.25, -.25}};
+   std::array<Number, 3> duplicate_target;
+   std::ranges::fill(
+      duplicate_target, std::numeric_limits<Number>::quiet_NaN());
+   duplicate.write(duplicate_source, duplicate_target);
+   Check(
+      duplicate_target == std::array<Number, 3>{{0., 1., 0.}},
+      "duplicate sparse derivative entries were not accumulated");
+
+   detail::SparseDerivativeScatterPlan invalid;
+   invalid.push_back({0, 2});
+   Check(
+      !invalid.prepare(2),
+      "out-of-range sparse derivative target was accepted");
 }
 
 void TestSparseBorderedFullDirection()
@@ -541,6 +660,21 @@ void TestSparseBorderedFullDirection()
    SparseBorderedStageDerivativeProvider provider = MakeDetachedProvider();
    Check(provider.configured(), "valid sparse bordered scatter was rejected");
    PrimalDualKktOperator kkt = MakeKkt();
+   const StateStorage state_storage;
+   const PrimalDualState state = state_storage.view(17);
+   const BorderedStageDerivativeStorage derivative_storage =
+      provider.bordered_stage_nlp_topology().derivative_storage();
+   BorderedDerivativeBufferStorage expected_derivatives(
+      derivative_storage, 0.);
+   BorderedDerivativeBufferStorage dirty_derivatives(
+      derivative_storage, std::numeric_limits<Number>::quiet_NaN());
+   Check(
+      provider.eval_bordered_stage_derivatives(
+         kkt, state.nlp, expected_derivatives.buffers()).has_value() &&
+         provider.eval_bordered_stage_derivatives(
+            kkt, state.nlp, dirty_derivatives.buffers()).has_value() &&
+         dirty_derivatives == expected_derivatives,
+      "unique sparse bordered scatter retained dirty structural values");
    PrimalDualBorderedStageKktAssembler assembler(std::move(provider), kkt);
    Check(assembler.configured(), "full bordered assembler was rejected");
    const BorderedStageStructuredLayout layout =
@@ -549,7 +683,8 @@ void TestSparseBorderedFullDirection()
       layout.block_sizes == std::vector<Index>({6, 7}) &&
          layout.border_dimension == 1 &&
          layout.inertia_dimension == 14 &&
-         layout.full_direction_dimension == 23,
+         layout.full_direction_dimension == 23 &&
+         layout.full_direction_overwrite_certified,
       "full bordered assembler produced wrong dimensions");
    const std::array<Index, 13> expected_permutation{{
       2, 0, 5, 8, 10, 13,
@@ -585,8 +720,6 @@ void TestSparseBorderedFullDirection()
       assembler.prepare_reusable_bordered_stage_storage(
          diagonal, lower, border, border_diagonal).has_value(),
       "bordered reusable storage preparation failed");
-   const StateStorage state_storage;
-   const PrimalDualState state = state_storage.view(17);
    Check(
       assembler.assemble_bordered_stage_system(
          {kkt, state, kRhs, 5, false},
@@ -685,6 +818,41 @@ void TestSparseBorderedFullDirection()
       "reused border diagonal is stale");
    check_storage(rhs, reference_rhs, "reused reduced RHS is stale");
 
+   std::vector<Number> reconstructed_direction(
+      layout.full_direction_dimension,
+      std::numeric_limits<Number>::quiet_NaN());
+   Check(
+      assembler.reconstruct_bordered_stage_direction(
+         {kkt, state, kRhs, 5, false},
+         {4e-6, 3e-6, 2e-6, 1e-6},
+         reference_rhs,
+         reconstructed_direction).has_value() &&
+         std::ranges::all_of(
+            reconstructed_direction,
+            [](Number value) { return std::isfinite(value); }),
+      "bordered reconstruction did not overwrite the full direction");
+
+   StateStorage invalid_reconstruction_storage;
+   invalid_reconstruction_storage.slack_x_lower[0] = 0.;
+   std::vector<Number> invalid_direction(layout.full_direction_dimension);
+   const auto invalid_reconstruction =
+      assembler.reconstruct_bordered_stage_direction(
+         {
+            kkt,
+            invalid_reconstruction_storage.view(18),
+            kRhs,
+            5,
+            false
+         },
+         {4e-6, 3e-6, 2e-6, 1e-6},
+         reference_rhs,
+         invalid_direction);
+   Check(
+      !invalid_reconstruction.has_value() &&
+         invalid_reconstruction.error().code ==
+            EvaluationErrorCode::nonfinite_output,
+      "a new numeric revision reused stale complementarity validation");
+
    BorderedStageStructuredCandidateOptions options;
    options.factorization.stage_factorization.require_certified_inertia = false;
    options.factorization.schur_factorization.require_certified_inertia = false;
@@ -706,13 +874,25 @@ void TestSparseBorderedFullDirection()
    std::array<Number, 23> second_rhs = kRhs;
    second_rhs[4] = -1.1;
    second_rhs[16] = .85;
-   const auto second = backend.solve({kkt, state, second_rhs, 5, false});
+   std::array<Number, 23> second_direction;
+   std::ranges::fill(
+      second_direction, std::numeric_limits<Number>::quiet_NaN());
+   const auto second = backend.solve({
+      kkt, state, second_rhs, 5, false, second_direction
+   });
    Check(second.has_value(), "cached bordered candidate solve failed");
    Check(
-      second->work.derivative_product_requests == 0 &&
+      second->direction.empty() &&
+         second->direction_written_to_request_output &&
+         second->work.derivative_product_requests == 0 &&
          second->work.quality_improvements == 0,
-      "cached bordered solve repeated derivatives or perturbation search");
-   CheckTrueResidual(kkt, state, *second, second_rhs);
+      "cached bordered output path repeated work or retained ownership");
+   CheckTrueResidual(
+      kkt,
+      state,
+      second_direction,
+      second->accepted_regularization,
+      second_rhs);
 }
 
 void TestReverseAndRejectedMetadata()
@@ -857,7 +1037,8 @@ void TestFixedFourStateNormalization()
       layout.block_sizes == std::vector<Index>({4, 8}) &&
          layout.border_dimension == 1 &&
          layout.inertia_dimension == 13 &&
-         layout.full_direction_dimension == 13,
+         layout.full_direction_dimension == 13 &&
+         layout.full_direction_overwrite_certified,
       "four-state normalization layout is wrong");
 
    std::array<Number, 80> diagonal{};
@@ -869,15 +1050,20 @@ void TestFixedFourStateNormalization()
    const FourStateNormalizationStateStorage state_storage;
    constexpr PrimalDualRegularization regularization{
       1e-6, 0., 2e-6, 0.};
+   const auto normalized = assembler.assemble_bordered_stage_system(
+      {kkt, state_storage.view(31), full_rhs, 4, false},
+      regularization,
+      diagonal,
+      lower,
+      border,
+      border_diagonal,
+      reduced_rhs);
    Check(
-      assembler.assemble_bordered_stage_system(
-         {kkt, state_storage.view(31), full_rhs, 4, false},
-         regularization,
-         diagonal,
-         lower,
-         border,
-         border_diagonal,
-         reduced_rhs).has_value(),
+      normalized.has_value() &&
+         normalized->independent_full_inertia.has_value() &&
+         normalized->independent_full_inertia->exact &&
+         normalized->independent_full_inertia->positive_eigenvalues == 9 &&
+         normalized->independent_full_inertia->negative_eigenvalues == 4,
       "pivoted four-state normalization failed");
 
    constexpr Index previous_block_size = 4;
@@ -936,6 +1122,47 @@ void TestFixedFourStateNormalization()
       }
    }
 
+   const std::array<Number, 13> structured_solution{{
+      .25, -.5, .75, -1., 1.25, -1.5, 1.75, -2.,
+      .4, -.3, .2, -.1, 2.5
+   }};
+   std::array<Number, 13> full_direction;
+   std::ranges::fill(
+      full_direction, std::numeric_limits<Number>::quiet_NaN());
+   Check(
+      assembler.reconstruct_bordered_stage_direction(
+         {kkt, state_storage.view(31), full_rhs, 4, false},
+         regularization,
+         structured_solution,
+         full_direction).has_value(),
+      "four-state normalized direction reconstruction failed");
+   std::array<Number, 13> expected_direction{};
+   const std::span<const Index> permutation =
+      assembler.stage_structured_to_full_permutation();
+   for( Index structured = 0; structured < permutation.size(); ++structured )
+   {
+      expected_direction[permutation[structured]] =
+         structured_solution[structured];
+   }
+   expected_direction[8] = structured_solution[12];
+   for( Index original = 0; original < 4; ++original )
+   {
+      Number value = 0.;
+      for( Index normalized_index = 0; normalized_index < 4;
+           ++normalized_index )
+      {
+         value += transform(normalized_index, original) *
+            structured_solution[8 + normalized_index];
+      }
+      expected_direction[9 + original] = value;
+   }
+   for( Index entry = 0; entry < full_direction.size(); ++entry )
+   {
+      Check(
+         full_direction[entry] == expected_direction[entry],
+         "four-state reconstructed direction changed operation order");
+   }
+
    PrimalDualBorderedStageKktAssembler singular_assembler(
       FourStateNormalizationProvider{.singular = true}, kkt);
    Check(
@@ -953,6 +1180,32 @@ void TestFixedFourStateNormalization()
       !singular.has_value() &&
          singular.error().code == EvaluationErrorCode::model_failure,
       "singular four-state next-state block was not rejected explicitly");
+
+   PrimalDualBorderedStageKktAssembler asymmetric_assembler(
+      FourStateNormalizationProvider{
+         .singular = false,
+         .asymmetric_hessian = true
+      },
+      kkt);
+   Check(
+      asymmetric_assembler.configured(),
+      "asymmetric four-state assembler was rejected before evaluation");
+   const auto asymmetric =
+      asymmetric_assembler.assemble_bordered_stage_system(
+         {kkt, state_storage.view(33), full_rhs, 4, false},
+         regularization,
+         diagonal,
+         lower,
+         border,
+         border_diagonal,
+         reduced_rhs);
+   Check(
+      asymmetric.has_value() &&
+         !asymmetric->independent_full_inertia.has_value(),
+      "asymmetric stage Hessian received an independent inertia certificate");
+   Check(
+      diagonal[1] == .1 && diagonal[4] == .2,
+      "asymmetric stage Hessian was silently projected during assembly");
 }
 } // namespace
 
@@ -960,6 +1213,7 @@ int main()
 {
    try
    {
+      TestSparseDerivativeScatterPlan();
       TestSparseBorderedFullDirection();
       TestReverseAndRejectedMetadata();
       TestFixedFourStateNormalization();

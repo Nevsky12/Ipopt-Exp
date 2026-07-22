@@ -434,7 +434,8 @@ void TestEqualityOcpAssemblyAndCache()
    const StageStructuredLayout layout = assembler.stage_structured_layout();
    Check(
       layout.block_sizes == std::vector<Index>({3, 3}) &&
-         layout.full_direction_dimension == 6,
+         layout.full_direction_dimension == 6 &&
+         layout.full_direction_overwrite_certified,
       "equality OCP produced the wrong block topology");
    const std::array<Index, 6> expected_permutation{{1, 0, 4, 2, 3, 5}};
    Check(

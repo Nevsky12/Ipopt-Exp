@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-22T07:20:08.074874+00:00",
+  "generated_at": "2026-07-22T12:27:24.066904+00:00",
   "nodes": {
     "cxx23_benchmarks_block_tridiagonal_solver_benchmark": {
       "code_fingerprint": "e18ee19e5465506bc43d86093fa3d296ebbad12d8cbebece0a4a723dc840db2e",
@@ -28,14 +28,14 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": -1.998330357,
+      "score": -1.988502606,
       "source_file": "cxx23/benchmarks/block_tridiagonal_solver_benchmark.cpp",
       "status": "contested",
       "uses": 2,
       "verdict": "dead end"
     },
     "cxx23_include_ipopt_cxx23_any_nlp_problem_borrownlpproblem": {
-      "code_fingerprint": "4fc95079d8d8bdeeba4c93cb856a81cae21ce1a2f0668c575fa4cc4df5e1db3b",
+      "code_fingerprint": "1b4f574963d0b304372a1030f7e80453e231e1d10b5c3196a4060d04f61ed494",
       "label": "BorrowNlpProblem()",
       "last": "2026-07-22T01:46:52.763563+00:00",
       "neg": 1,
@@ -56,14 +56,63 @@
           "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
         }
       ],
-      "score": 0.994624707,
+      "score": 0.989733162,
       "source_file": "cxx23/include/ipopt/cxx23/any_nlp_problem.hpp",
       "status": "contested",
       "uses": 2,
       "verdict": "useful"
     },
+    "cxx23_include_ipopt_cxx23_any_nlp_problem_nlpmodeladapter_evaluatejacobianproducts": {
+      "code_fingerprint": "1b4f574963d0b304372a1030f7e80453e231e1d10b5c3196a4060d04f61ed494",
+      "label": ".EvaluateJacobianProducts()",
+      "last": "2026-07-22T09:06:47.455906+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T09:06:47.455906+00:00",
+          "outcome": "useful",
+          "q": "Какой финальный accepted baseline и доказанный путь fused Jacobian products в C++23 CAR2?"
+        },
+        {
+          "date": "2026-07-22T09:06:29.067770+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T09:06:12.659800+00:00",
+          "outcome": "useful",
+          "q": "Где в C++23/AnyAny пути KKT безопасно слить J*v и J^T*w без потери транзакционности и fallback-семантики?"
+        }
+      ],
+      "score": 0.996781996,
+      "source_file": "cxx23/include/ipopt/cxx23/any_nlp_problem.hpp",
+      "status": "contested",
+      "uses": 2,
+      "verdict": "useful"
+    },
+    "cxx23_include_ipopt_cxx23_any_nlp_problem_nlpmodeladapter_materializedjacobianproducts": {
+      "code_fingerprint": "1b4f574963d0b304372a1030f7e80453e231e1d10b5c3196a4060d04f61ed494",
+      "label": ".MaterializedJacobianProducts()",
+      "last": "2026-07-22T09:06:47.455906+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T09:06:47.455906+00:00",
+          "outcome": "useful",
+          "q": "Какой финальный accepted baseline и доказанный путь fused Jacobian products в C++23 CAR2?"
+        },
+        {
+          "date": "2026-07-22T09:06:12.659800+00:00",
+          "outcome": "useful",
+          "q": "Где в C++23/AnyAny пути KKT безопасно слить J*v и J^T*w без потери транзакционности и fallback-семантики?"
+        }
+      ],
+      "score": 1.993563464,
+      "source_file": "cxx23/include/ipopt/cxx23/any_nlp_problem.hpp",
+      "status": "preferred",
+      "uses": 2
+    },
     "cxx23_include_ipopt_cxx23_any_nlp_problem_nlpproblemreference": {
-      "code_fingerprint": "4fc95079d8d8bdeeba4c93cb856a81cae21ce1a2f0668c575fa4cc4df5e1db3b",
+      "code_fingerprint": "1b4f574963d0b304372a1030f7e80453e231e1d10b5c3196a4060d04f61ed494",
       "label": "NlpProblemReference",
       "last": "2026-07-22T01:45:27.174994+00:00",
       "provenance": [
@@ -73,7 +122,7 @@
           "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
         }
       ],
-      "score": 0.994644401,
+      "score": 0.989752758,
       "source_file": "cxx23/include/ipopt/cxx23/any_nlp_problem.hpp",
       "status": "tentative",
       "uses": 1
@@ -89,7 +138,7 @@
           "q": "Как live DTOC3 candidate-first запрос проходит через lazy factory, equality stage assembler, independent full inertia proof, numeric block factor и stable fallback?"
         }
       ],
-      "score": 0.992194112,
+      "score": 0.98731452,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "tentative",
       "uses": 1
@@ -126,7 +175,7 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": -1.996393981,
+      "score": -1.986575753,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 3,
@@ -149,7 +198,7 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": -0.002111701,
+      "score": -0.002101316,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 2,
@@ -187,7 +236,7 @@
           "q": "Как ускорена матричная аппликация SymmetricBlockTridiagonalSolver и bordered refinement, и какие performance/robustness gates подтвердили изменение?"
         }
       ],
-      "score": -0.002355537,
+      "score": -0.002343952,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 10,
@@ -225,7 +274,7 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": -2.995640268,
+      "score": -2.980907765,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 3,
@@ -242,7 +291,7 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": 0.997311806,
+      "score": 0.992407045,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "tentative",
       "uses": 1
@@ -264,7 +313,7 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": -1.937e-06,
+      "score": -1.928e-06,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 1,
@@ -292,7 +341,7 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": 0.997725616,
+      "score": 0.99281882,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 2,
@@ -309,7 +358,7 @@
           "q": "Как убрать повторные проходы валидации из CAR2 factorize, не ослабляя inertia и residual gates?"
         }
       ],
-      "score": 0.997728551,
+      "score": 0.992821741,
       "source_file": "cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp",
       "status": "tentative",
       "uses": 1
@@ -336,52 +385,52 @@
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": 0.998861957,
+      "score": 0.993949573,
       "source_file": "cxx23/include/ipopt/cxx23/bordered_block_tridiagonal_solver.hpp",
       "status": "contested",
       "uses": 2,
       "verdict": "useful"
     },
     "cxx23_include_ipopt_cxx23_bordered_stage_structured_candidate_backend_borderedstagestructuredcandidatebackend": {
-      "code_fingerprint": "cbb348ae802731557da49b3241e09e6a1952edb5029187e555f075ec090e7870",
+      "code_fingerprint": "706f72d0d2d1447a9e790f6265e0ead64e6cc3ad168fa9cd0726266b89582259",
       "label": "BorderedStageStructuredCandidateBackend",
-      "last": "2026-07-22T05:31:59.151677+00:00",
-      "neg": 8,
+      "last": "2026-07-22T11:16:51.828296+00:00",
+      "neg": 11,
       "provenance": [
         {
-          "date": "2026-07-22T05:31:59.151677+00:00",
+          "date": "2026-07-22T11:16:51.828296+00:00",
           "outcome": "corrected",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after caller-owned candidate direction output?"
         },
         {
-          "date": "2026-07-22T05:31:49.869003+00:00",
+          "date": "2026-07-22T11:16:36.427735+00:00",
           "outcome": "useful",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
         },
         {
-          "date": "2026-07-22T04:57:12.514852+00:00",
+          "date": "2026-07-22T10:58:36.113727+00:00",
           "outcome": "corrected",
-          "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after certified full-direction overwrite?"
         },
         {
-          "date": "2026-07-22T04:32:29.394008+00:00",
-          "outcome": "corrected",
-          "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
+          "date": "2026-07-22T10:58:36.060703+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно убрать предварительное обнуление полного направления перед реконструкцией, не ослабив транзакционность и finite-проверки?"
         },
         {
-          "date": "2026-07-22T03:48:27.246888+00:00",
-          "outcome": "corrected",
-          "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
+          "date": "2026-07-22T10:37:21.690029+00:00",
+          "outcome": "useful",
+          "q": "Можно ли ускорить four-state bordered direction reconstruction, сохранив порядок преобразования normalized dynamics?"
         }
       ],
-      "score": -3.98908583,
+      "score": -1.973188942,
       "source_file": "cxx23/include/ipopt/cxx23/bordered_stage_structured_candidate_backend.hpp",
       "status": "contested",
-      "uses": 4,
+      "uses": 9,
       "verdict": "dead end"
     },
     "cxx23_include_ipopt_cxx23_bordered_stage_structured_candidate_backend_borderedstagestructuredlayout": {
-      "code_fingerprint": "cbb348ae802731557da49b3241e09e6a1952edb5029187e555f075ec090e7870",
+      "code_fingerprint": "706f72d0d2d1447a9e790f6265e0ead64e6cc3ad168fa9cd0726266b89582259",
       "label": "BorderedStageStructuredLayout",
       "last": "2026-07-22T01:13:20.802606+00:00",
       "provenance": [
@@ -391,8 +440,24 @@
           "q": "What is the shortest graph path from the full bordered stage assembler to the arrowhead numeric solver?"
         }
       ],
-      "score": 0.994132145,
+      "score": 0.989243022,
       "source_file": "cxx23/include/ipopt/cxx23/bordered_stage_structured_candidate_backend.hpp",
+      "status": "tentative",
+      "uses": 1
+    },
+    "cxx23_include_ipopt_cxx23_bordered_stage_structured_nlp_borderedstagederivativebuffers": {
+      "code_fingerprint": "7a8216f7e1113f40e6de06de554a5f6e22fe617110569a2820c4c9409b6e023e",
+      "label": "BorderedStageDerivativeBuffers",
+      "last": "2026-07-22T08:38:34.018686+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T08:38:34.018686+00:00",
+          "outcome": "useful",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": 0.996335072,
+      "source_file": "cxx23/include/ipopt/cxx23/bordered_stage_structured_nlp.hpp",
       "status": "tentative",
       "uses": 1
     },
@@ -413,30 +478,88 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": -0.000537278,
+      "score": -0.000534635,
       "source_file": "cxx23/include/ipopt/cxx23/bordered_stage_structured_nlp.hpp",
       "status": "contested",
       "uses": 1,
       "verdict": "dead end"
     },
-    "cxx23_include_ipopt_cxx23_candidate_first_backend_candidatefirstsolveresult": {
-      "code_fingerprint": "3527ee028032c1c584b23553c2dc3316adafaa16572834739cec431e215c9df6",
-      "label": "CandidateFirstSolveResult",
-      "last": "2026-07-21T23:11:43.701845+00:00",
+    "cxx23_include_ipopt_cxx23_bordered_stage_structured_nlp_preparedborderedstagederivativeprovider": {
+      "code_fingerprint": "7a8216f7e1113f40e6de06de554a5f6e22fe617110569a2820c4c9409b6e023e",
+      "label": "PreparedBorderedStageDerivativeProvider",
+      "last": "2026-07-22T08:39:34.880478+00:00",
+      "neg": 1,
       "provenance": [
+        {
+          "date": "2026-07-22T08:39:34.880478+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T08:38:34.018686+00:00",
+          "outcome": "useful",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": -1.6216e-05,
+      "source_file": "cxx23/include/ipopt/cxx23/bordered_stage_structured_nlp.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_candidate_first_backend_candidatefirstsolverequest": {
+      "code_fingerprint": "6f5bcd71439fb6a43114d525635ab082898804558ee7d16e820a2f2f7443bea4",
+      "label": "CandidateFirstSolveRequest",
+      "last": "2026-07-22T11:16:51.828296+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T11:16:51.828296+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after caller-owned candidate direction output?"
+        },
+        {
+          "date": "2026-07-22T11:16:36.427735+00:00",
+          "outcome": "useful",
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
+        }
+      ],
+      "score": -4.114e-06,
+      "source_file": "cxx23/include/ipopt/cxx23/candidate_first_backend.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_candidate_first_backend_candidatefirstsolveresult": {
+      "code_fingerprint": "6f5bcd71439fb6a43114d525635ab082898804558ee7d16e820a2f2f7443bea4",
+      "label": "CandidateFirstSolveResult",
+      "last": "2026-07-22T11:16:51.828296+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T11:16:51.828296+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after caller-owned candidate direction output?"
+        },
+        {
+          "date": "2026-07-22T11:16:36.427735+00:00",
+          "outcome": "useful",
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
+        },
         {
           "date": "2026-07-21T23:11:43.701845+00:00",
           "outcome": "useful",
           "q": "Как live DTOC3 candidate-first запрос проходит через lazy factory, equality stage assembler, independent full inertia proof, numeric block factor и stable fallback?"
         }
       ],
-      "score": 0.992194112,
+      "score": 0.987310406,
       "source_file": "cxx23/include/ipopt/cxx23/candidate_first_backend.hpp",
-      "status": "tentative",
-      "uses": 1
+      "status": "contested",
+      "uses": 2,
+      "verdict": "useful"
     },
     "cxx23_include_ipopt_cxx23_candidate_first_backend_lazycandidatefirstbackend": {
-      "code_fingerprint": "3527ee028032c1c584b23553c2dc3316adafaa16572834739cec431e215c9df6",
+      "code_fingerprint": "6f5bcd71439fb6a43114d525635ab082898804558ee7d16e820a2f2f7443bea4",
       "label": "LazyCandidateFirstBackend",
       "last": "2026-07-21T23:11:43.701845+00:00",
       "provenance": [
@@ -446,16 +569,21 @@
           "q": "Как live DTOC3 candidate-first запрос проходит через lazy factory, equality stage assembler, independent full inertia proof, numeric block factor и stable fallback?"
         }
       ],
-      "score": 0.992194112,
+      "score": 0.98731452,
       "source_file": "cxx23/include/ipopt/cxx23/candidate_first_backend.hpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_include_ipopt_cxx23_equality_stage_kkt_assembler_equalitystagekktassembler": {
-      "code_fingerprint": "503706d958c4d9f5dce3bf604e058fc746b7ec99db7a41c3c4639da9c4d359b6",
+      "code_fingerprint": "6bbc1a1d7fe8d2b25de7294abd98576d18b5e81db77992ef5beee2cc1cab7e8d",
       "label": "EqualityStageKktAssembler",
-      "last": "2026-07-21T23:11:43.701845+00:00",
+      "last": "2026-07-22T10:58:36.060703+00:00",
       "provenance": [
+        {
+          "date": "2026-07-22T10:58:36.060703+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно убрать предварительное обнуление полного направления перед реконструкцией, не ослабив транзакционность и finite-проверки?"
+        },
         {
           "date": "2026-07-21T23:11:43.701845+00:00",
           "outcome": "useful",
@@ -467,13 +595,90 @@
           "q": "How should an equality-only OCP with fixed initial states flow from TNLPAdapter make_constraint through StageNlpTopology and EqualityStageKktAssembler into the candidate-first backend, and which unsupported layouts must fall back to the stable solver?"
         }
       ],
-      "score": 1.983207499,
+      "score": 2.972030332,
       "source_file": "cxx23/include/ipopt/cxx23/equality_stage_kkt_assembler.hpp",
+      "status": "preferred",
+      "uses": 3
+    },
+    "cxx23_include_ipopt_cxx23_kkt_operator_nlpkktoperator": {
+      "code_fingerprint": "f7273b9e12d368ccbfad0eb8d1bb8cd7acf4a6d64ac9104921bdf642144cc31e",
+      "label": "NlpKktOperator",
+      "last": "2026-07-22T09:20:51.988086+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T09:20:51.988086+00:00",
+          "outcome": "useful",
+          "q": "kkt operator constructor workspace reuse vector legacy canary evaluate solve cache factory"
+        },
+        {
+          "date": "2026-07-22T09:06:47.455906+00:00",
+          "outcome": "useful",
+          "q": "Какой финальный accepted baseline и доказанный путь fused Jacobian products в C++23 CAR2?"
+        },
+        {
+          "date": "2026-07-22T09:06:29.067770+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T09:06:12.659800+00:00",
+          "outcome": "useful",
+          "q": "Где в C++23/AnyAny пути KKT безопасно слить J*v и J^T*w без потери транзакционности и fallback-семантики?"
+        }
+      ],
+      "score": 1.993793508,
+      "source_file": "cxx23/include/ipopt/cxx23/kkt_operator.hpp",
+      "status": "contested",
+      "uses": 3,
+      "verdict": "useful"
+    },
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_comparison": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": "Comparison",
+      "last": "2026-07-22T11:27:44.905517+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T11:27:44.905517+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fused residual scaling?"
+        },
+        {
+          "date": "2026-07-22T11:27:44.763406+00:00",
+          "outcome": "useful",
+          "q": "Где следующий устранимый per-solve overhead после caller-owned output, не ослабляя residual, scaling и finite gates?"
+        }
+      ],
+      "score": -3.8e-08,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_copyvectorsinto": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": "CopyVectorsInto()",
+      "last": "2026-07-22T11:27:44.763406+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T11:27:44.763406+00:00",
+          "outcome": "useful",
+          "q": "Где следующий устранимый per-solve overhead после caller-owned output, не ослабляя residual, scaling и finite gates?"
+        },
+        {
+          "date": "2026-07-22T11:16:36.427735+00:00",
+          "outcome": "useful",
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
+        }
+      ],
+      "score": 1.997908038,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
       "status": "preferred",
       "uses": 2
     },
     "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarybuilder": {
-      "code_fingerprint": "fc95a6a12c2f29c294d5fc0842e6021c9688bdb0b6e78068026b7c79ee4c0a48",
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
       "label": "LegacyAlgorithmCanaryBuilder",
       "last": "2026-07-21T19:55:59.513388+00:00",
       "provenance": [
@@ -483,16 +688,31 @@
           "q": "Как restoration phase создаёт PDSystemSolver и где безопасно встроить C++23 full-system runtime canary без изменения stable ABI?"
         }
       ],
-      "score": 0.989082909,
+      "score": 0.984218618,
       "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver": {
-      "code_fingerprint": "fc95a6a12c2f29c294d5fc0842e6021c9688bdb0b6e78068026b7c79ee4c0a48",
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
       "label": "LegacyAlgorithmCanaryPDSystemSolver",
-      "last": "2026-07-22T01:45:38.725404+00:00",
+      "last": "2026-07-22T11:16:36.427735+00:00",
       "provenance": [
+        {
+          "date": "2026-07-22T11:16:36.427735+00:00",
+          "outcome": "useful",
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
+        },
+        {
+          "date": "2026-07-22T10:10:43.317951+00:00",
+          "outcome": "useful",
+          "q": "Where is the next removable CAR2 commit, assembly, or factorization overhead after evaluation workspace reuse?"
+        },
+        {
+          "date": "2026-07-22T09:20:51.988086+00:00",
+          "outcome": "useful",
+          "q": "kkt operator constructor workspace reuse vector legacy canary evaluate solve cache factory"
+        },
         {
           "date": "2026-07-22T01:45:38.725404+00:00",
           "outcome": "useful",
@@ -502,20 +722,15 @@
           "date": "2026-07-22T01:45:27.174994+00:00",
           "outcome": "useful",
           "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
-        },
-        {
-          "date": "2026-07-21T20:24:05.924918+00:00",
-          "outcome": "useful",
-          "q": "Где безопасно реализовать opt-in guarded replacement C++23 direction в legacy Ipopt?"
         }
       ],
-      "score": 2.978820936,
+      "score": 5.95785679,
       "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
       "status": "preferred",
-      "uses": 3
+      "uses": 6
     },
     "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver_cached_coordinate_problem": {
-      "code_fingerprint": "fc95a6a12c2f29c294d5fc0842e6021c9688bdb0b6e78068026b7c79ee4c0a48",
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
       "label": "cached_coordinate_problem_",
       "last": "2026-07-22T01:46:52.763563+00:00",
       "neg": 1,
@@ -536,112 +751,252 @@
           "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
         }
       ],
-      "score": 0.994624707,
+      "score": 0.989733162,
       "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
       "status": "contested",
       "uses": 2,
       "verdict": "useful"
     },
-    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver_evaluatesolve": {
-      "code_fingerprint": "fc95a6a12c2f29c294d5fc0842e6021c9688bdb0b6e78068026b7c79ee4c0a48",
-      "label": ".EvaluateSolve()",
-      "last": "2026-07-22T01:45:38.725404+00:00",
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver_commitdirection": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": ".CommitDirection()",
+      "last": "2026-07-22T10:10:43.373553+00:00",
+      "neg": 1,
       "provenance": [
         {
-          "date": "2026-07-22T01:45:38.725404+00:00",
-          "outcome": "useful",
-          "q": "Path from cached_coordinate_problem_ to BorrowNlpProblem()"
+          "date": "2026-07-22T10:10:43.373553+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after direct equal-precision commit?"
         },
         {
-          "date": "2026-07-22T01:45:27.174994+00:00",
+          "date": "2026-07-22T10:10:43.317951+00:00",
           "outcome": "useful",
-          "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
+          "q": "Where is the next removable CAR2 commit, assembly, or factorization overhead after evaluation workspace reuse?"
         }
       ],
-      "score": 1.989291874,
+      "score": -1.5e-08,
       "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
-      "status": "preferred",
-      "uses": 2
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver_evaluatesolve": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": ".EvaluateSolve()",
+      "last": "2026-07-22T11:27:44.905517+00:00",
+      "neg": 3,
+      "provenance": [
+        {
+          "date": "2026-07-22T11:27:44.905517+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fused residual scaling?"
+        },
+        {
+          "date": "2026-07-22T11:27:44.763406+00:00",
+          "outcome": "useful",
+          "q": "Где следующий устранимый per-solve overhead после caller-owned output, не ослабляя residual, scaling и finite gates?"
+        },
+        {
+          "date": "2026-07-22T10:10:43.373553+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after direct equal-precision commit?"
+        },
+        {
+          "date": "2026-07-22T09:56:47.558395+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after the latest optimization?"
+        },
+        {
+          "date": "2026-07-22T09:56:47.496755+00:00",
+          "outcome": "useful",
+          "q": "copy vector flatten iterates buffer workspace reuse span commit restoration initialize solve"
+        }
+      ],
+      "score": 0.981699129,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
+      "status": "contested",
+      "uses": 4,
+      "verdict": "useful"
+    },
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_legacyalgorithmcanarypdsystemsolver_flatteninto": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": ".FlattenInto()",
+      "last": "2026-07-22T11:27:44.763406+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T11:27:44.763406+00:00",
+          "outcome": "useful",
+          "q": "Где следующий устранимый per-solve overhead после caller-owned output, не ослабляя residual, scaling и finite gates?"
+        }
+      ],
+      "score": 0.999043288,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
+      "status": "tentative",
+      "uses": 1
+    },
+    "cxx23_include_ipopt_cxx23_legacy_algorithm_canary_relativeinfinityerror": {
+      "code_fingerprint": "55ebe55a40cf8982f4bb9508c6cff68a9f0c8b86ae73b1b1f5ed7058807997e4",
+      "label": "RelativeInfinityError()",
+      "last": "2026-07-22T11:27:44.905517+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T11:27:44.905517+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fused residual scaling?"
+        },
+        {
+          "date": "2026-07-22T11:27:44.763406+00:00",
+          "outcome": "useful",
+          "q": "Где следующий устранимый per-solve overhead после caller-owned output, не ослабляя residual, scaling и finite gates?"
+        }
+      ],
+      "score": -3.8e-08,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
     },
     "cxx23_include_ipopt_cxx23_legacy_coordinate_adapter_legacycoordinatemodel": {
-      "code_fingerprint": "cf1960743494829fbe4a3f4ed87b7065c41b869fe9147f07ec4e3f491ed136e1",
+      "code_fingerprint": "dde31731ec4c9df0350a379a88d77450602e437f60156a547b545d53d7cc7b78",
       "label": "LegacyCoordinateModel",
-      "last": "2026-07-21T21:57:31.035621+00:00",
+      "last": "2026-07-22T09:06:29.067770+00:00",
+      "neg": 1,
       "provenance": [
+        {
+          "date": "2026-07-22T09:06:29.067770+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
         {
           "date": "2026-07-21T21:57:31.035621+00:00",
           "outcome": "useful",
           "q": "How should an equality-only OCP with fixed initial states flow from TNLPAdapter make_constraint through StageNlpTopology and EqualityStageKktAssembler into the candidate-first backend, and which unsupported layouts must fall back to the stable solver?"
         }
       ],
-      "score": 0.991013387,
+      "score": -0.010641866,
       "source_file": "cxx23/include/ipopt/cxx23/legacy_coordinate_adapter.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_legacy_ipopt_bridge_copytostable": {
+      "code_fingerprint": "6af7138fec5cb256ffcb01a1d26ea07c033e14135c091de51bdebef676eed2af",
+      "label": "CopyToStable()",
+      "last": "2026-07-22T09:56:47.496755+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T09:56:47.496755+00:00",
+          "outcome": "useful",
+          "q": "copy vector flatten iterates buffer workspace reuse span commit restoration initialize solve"
+        }
+      ],
+      "score": 0.997586377,
+      "source_file": "cxx23/include/ipopt/cxx23/legacy_ipopt_bridge.hpp",
       "status": "tentative",
       "uses": 1
     },
-    "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler": {
-      "code_fingerprint": "47b13a26339fdca637ab269d7b165bf96108a8a8541dfc246b860612a6984120",
-      "label": "PrimalDualBorderedStageKktAssembler",
-      "last": "2026-07-22T07:18:07.122737+00:00",
-      "neg": 5,
-      "provenance": [
-        {
-          "date": "2026-07-22T07:18:07.122737+00:00",
-          "outcome": "corrected",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
-        },
-        {
-          "date": "2026-07-22T07:17:24.494687+00:00",
-          "outcome": "useful",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
-        },
-        {
-          "date": "2026-07-22T06:58:02.678393+00:00",
-          "outcome": "corrected",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
-        },
-        {
-          "date": "2026-07-22T06:57:16.970115+00:00",
-          "outcome": "useful",
-          "q": "Как сократить работу нормализованного bordered-stage assembler на CAR2, сохранив exact symmetry, arbitrary-state fallback, inertia и residual gates?"
-        },
-        {
-          "date": "2026-07-22T05:31:59.151677+00:00",
-          "outcome": "corrected",
-          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
-        }
-      ],
-      "score": -0.002200674,
-      "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
-      "status": "contested",
-      "uses": 5,
-      "verdict": "dead end"
-    },
-    "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler_assemble_bordered_stage_system": {
-      "code_fingerprint": "47b13a26339fdca637ab269d7b165bf96108a8a8541dfc246b860612a6984120",
-      "label": ".assemble_bordered_stage_system()",
-      "last": "2026-07-22T06:58:02.678393+00:00",
+    "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_fixeddotproduct": {
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
+      "label": "FixedDotProduct()",
+      "last": "2026-07-22T07:37:25.386375+00:00",
       "neg": 1,
       "provenance": [
         {
-          "date": "2026-07-22T06:58:02.678393+00:00",
+          "date": "2026-07-22T07:37:25.386375+00:00",
           "outcome": "corrected",
           "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         },
         {
-          "date": "2026-07-22T06:57:16.970115+00:00",
+          "date": "2026-07-22T07:37:10.110720+00:00",
           "outcome": "useful",
-          "q": "Как сократить работу нормализованного bordered-stage assembler на CAR2, сохранив exact symmetry, arbitrary-state fallback, inertia и residual gates?"
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
         }
       ],
-      "score": -1.2219e-05,
+      "score": -4.066e-06,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
       "status": "contested",
       "uses": 1,
       "verdict": "dead end"
     },
+    "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler": {
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
+      "label": "PrimalDualBorderedStageKktAssembler",
+      "last": "2026-07-22T10:58:36.060703+00:00",
+      "neg": 7,
+      "provenance": [
+        {
+          "date": "2026-07-22T10:58:36.060703+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно убрать предварительное обнуление полного направления перед реконструкцией, не ослабив транзакционность и finite-проверки?"
+        },
+        {
+          "date": "2026-07-22T10:39:21.755912+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fixed four-state reconstruction?"
+        },
+        {
+          "date": "2026-07-22T10:37:21.690029+00:00",
+          "outcome": "useful",
+          "q": "Можно ли ускорить four-state bordered direction reconstruction, сохранив порядок преобразования normalized dynamics?"
+        },
+        {
+          "date": "2026-07-22T08:10:11.954441+00:00",
+          "outcome": "useful",
+          "q": "Где безопасно слить независимый reduced-inertia certificate с копированием bordered KKT, сохранив асимметрию, порядок сумм и residual gates?"
+        },
+        {
+          "date": "2026-07-22T08:09:47.051972+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": 0.996360939,
+      "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
+      "status": "contested",
+      "uses": 8,
+      "verdict": "useful"
+    },
+    "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler_assemble_bordered_stage_system": {
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
+      "label": ".assemble_bordered_stage_system()",
+      "last": "2026-07-22T10:26:44.428909+00:00",
+      "neg": 3,
+      "provenance": [
+        {
+          "date": "2026-07-22T10:26:44.428909+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after reconstruction complementarity validation reuse?"
+        },
+        {
+          "date": "2026-07-22T10:25:08.164597+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно исключить повторную ValidComplementarityState при reconstruction, используя numeric_revision после успешной bordered assembly?"
+        },
+        {
+          "date": "2026-07-22T08:10:11.954441+00:00",
+          "outcome": "useful",
+          "q": "Где безопасно слить независимый reduced-inertia certificate с копированием bordered KKT, сохранив асимметрию, порядок сумм и residual gates?"
+        },
+        {
+          "date": "2026-07-22T08:09:47.051972+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T06:58:02.678393+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": -3.1219e-05,
+      "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
+      "status": "contested",
+      "uses": 3,
+      "verdict": "dead end"
+    },
     "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler_invertnextstateblock": {
-      "code_fingerprint": "47b13a26339fdca637ab269d7b165bf96108a8a8541dfc246b860612a6984120",
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
       "label": ".InvertNextStateBlock()",
       "last": "2026-07-22T01:13:12.314484+00:00",
       "provenance": [
@@ -651,13 +1006,13 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": 0.994129889,
+      "score": 0.989240777,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler_normalizedynamics": {
-      "code_fingerprint": "47b13a26339fdca637ab269d7b165bf96108a8a8541dfc246b860612a6984120",
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
       "label": ".NormalizeDynamics()",
       "last": "2026-07-22T01:13:12.314484+00:00",
       "provenance": [
@@ -667,45 +1022,95 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": 0.994129889,
+      "score": 0.989240777,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_include_ipopt_cxx23_primal_dual_bordered_stage_kkt_assembler_primaldualborderedstagekktassembler_reconstruct_bordered_stage_direction": {
-      "code_fingerprint": "47b13a26339fdca637ab269d7b165bf96108a8a8541dfc246b860612a6984120",
+      "code_fingerprint": "300a8ec94d02682f351089eb525609d29247672e9c8eda970bce1abf565e92cb",
       "label": ".reconstruct_bordered_stage_direction()",
-      "last": "2026-07-22T01:13:12.314484+00:00",
+      "last": "2026-07-22T10:39:21.755912+00:00",
+      "neg": 2,
       "provenance": [
+        {
+          "date": "2026-07-22T10:39:21.755912+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fixed four-state reconstruction?"
+        },
+        {
+          "date": "2026-07-22T10:37:21.690029+00:00",
+          "outcome": "useful",
+          "q": "Можно ли ускорить four-state bordered direction reconstruction, сохранив порядок преобразования normalized dynamics?"
+        },
+        {
+          "date": "2026-07-22T10:26:44.428909+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after reconstruction complementarity validation reuse?"
+        },
+        {
+          "date": "2026-07-22T10:25:08.164597+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно исключить повторную ValidComplementarityState при reconstruction, используя numeric_revision после успешной bordered assembly?"
+        },
         {
           "date": "2026-07-22T01:13:12.314484+00:00",
           "outcome": "useful",
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": 0.994129889,
+      "score": 0.989183032,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp",
-      "status": "tentative",
-      "uses": 1
+      "status": "contested",
+      "uses": 3,
+      "verdict": "useful"
+    },
+    "cxx23_include_ipopt_cxx23_primal_dual_kkt_operator_primaldualstate": {
+      "code_fingerprint": "254fab209e00da0b2f7ffdb72a1a1071f986916e42ba604d9cb8924cecf59490",
+      "label": "PrimalDualState",
+      "last": "2026-07-22T10:26:44.428909+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T10:26:44.428909+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after reconstruction complementarity validation reuse?"
+        },
+        {
+          "date": "2026-07-22T10:25:08.164597+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно исключить повторную ValidComplementarityState при reconstruction, используя numeric_revision после успешной bordered assembly?"
+        }
+      ],
+      "score": -2.5693e-05,
+      "source_file": "cxx23/include/ipopt/cxx23/primal_dual_kkt_operator.hpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
     },
     "cxx23_include_ipopt_cxx23_primal_dual_stage_kkt_assembler_primaldualstagekktassembler": {
-      "code_fingerprint": "814df2719a9b6e45fbf3cef18e13b44cc6874ce420f43d2f96fabbe1c660df24",
+      "code_fingerprint": "c060030058ba7f055f519feb5e02c3a547e44ce9ac1ec3f576877ab9970f5bca",
       "label": "PrimalDualStageKktAssembler",
-      "last": "2026-07-21T23:36:38.700859+00:00",
+      "last": "2026-07-22T10:58:36.060703+00:00",
       "provenance": [
+        {
+          "date": "2026-07-22T10:58:36.060703+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно убрать предварительное обнуление полного направления перед реконструкцией, не ослабив транзакционность и finite-проверки?"
+        },
         {
           "date": "2026-07-21T23:36:38.700859+00:00",
           "outcome": "useful",
           "q": "Как live Ipopt full-KKT проходит через bounds, path inequalities, complementarity condensation, stage backend, inertia certification, reconstruction и restoration fallback?"
         }
       ],
-      "score": 0.99259086,
+      "score": 1.986285527,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_stage_kkt_assembler.hpp",
-      "status": "tentative",
-      "uses": 1
+      "status": "preferred",
+      "uses": 2
     },
     "cxx23_include_ipopt_cxx23_primal_dual_stage_kkt_assembler_primaldualstagekktlayoutworkspace": {
-      "code_fingerprint": "814df2719a9b6e45fbf3cef18e13b44cc6874ce420f43d2f96fabbe1c660df24",
+      "code_fingerprint": "c060030058ba7f055f519feb5e02c3a547e44ce9ac1ec3f576877ab9970f5bca",
       "label": "PrimalDualStageKktLayoutWorkspace",
       "last": "2026-07-21T23:36:38.700859+00:00",
       "provenance": [
@@ -715,17 +1120,27 @@
           "q": "Как live Ipopt full-KKT проходит через bounds, path inequalities, complementarity condensation, stage backend, inertia certification, reconstruction и restoration fallback?"
         }
       ],
-      "score": 0.99259086,
+      "score": 0.987709317,
       "source_file": "cxx23/include/ipopt/cxx23/primal_dual_stage_kkt_assembler.hpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_include_ipopt_cxx23_sparse_bordered_stage_derivative_provider_sparseborderedstagederivativeprovider": {
-      "code_fingerprint": "93cd4f0d9d52f72b63a6cd6f9f11c6d1c1e1be4c93d447acb41ef112906e3878",
+      "code_fingerprint": "b6ebcb5f6bfa2112c6e74b180fe5099237851959f8d37b5de33acb5af39feb6e",
       "label": "SparseBorderedStageDerivativeProvider",
-      "last": "2026-07-22T01:46:52.763563+00:00",
-      "neg": 1,
+      "last": "2026-07-22T08:39:34.880478+00:00",
+      "neg": 2,
       "provenance": [
+        {
+          "date": "2026-07-22T08:39:34.880478+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T08:38:34.018686+00:00",
+          "outcome": "useful",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
         {
           "date": "2026-07-22T01:46:52.763563+00:00",
           "outcome": "corrected",
@@ -737,17 +1152,56 @@
           "q": "How does the live CAR2 full primal-dual KKT reach fallback-free candidate acceptance, and where are the remaining limits?"
         }
       ],
-      "score": -0.000537278,
+      "score": -0.000550851,
       "source_file": "cxx23/include/ipopt/cxx23/sparse_bordered_stage_derivative_provider.hpp",
+      "status": "contested",
+      "uses": 2,
+      "verdict": "dead end"
+    },
+    "cxx23_include_ipopt_cxx23_sparse_stage_derivative_provider_sparsestagederivativeprovider": {
+      "code_fingerprint": "db2f696e0abe13689addb522b6c254a0aaa61418a2f120096f0e8076bc803b3a",
+      "label": "SparseStageDerivativeProvider",
+      "last": "2026-07-22T08:39:34.880478+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T08:39:34.880478+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T08:38:34.018686+00:00",
+          "outcome": "useful",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": -1.6216e-05,
+      "source_file": "cxx23/include/ipopt/cxx23/sparse_stage_derivative_provider.hpp",
       "status": "contested",
       "uses": 1,
       "verdict": "dead end"
     },
     "cxx23_include_ipopt_cxx23_stage_structured_candidate_backend_stagestructuredcandidatebackend": {
-      "code_fingerprint": "1b9550501e18e5a0b59119d8938ed52fd5f5a6970307580efeaeebecc8858121",
+      "code_fingerprint": "eb343689c8f5e1d2dd0a3153e86857acad36d625616d72a2612a02599f713532",
       "label": "StageStructuredCandidateBackend",
-      "last": "2026-07-21T23:36:38.700859+00:00",
+      "last": "2026-07-22T11:16:36.427735+00:00",
+      "neg": 1,
       "provenance": [
+        {
+          "date": "2026-07-22T11:16:36.427735+00:00",
+          "outcome": "useful",
+          "q": "Как убрать owning-копию полного направления в CandidateFirstSolveResult без нарушения lifetime, транзакционности и AnyAny?"
+        },
+        {
+          "date": "2026-07-22T10:58:36.113727+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after certified full-direction overwrite?"
+        },
+        {
+          "date": "2026-07-22T10:58:36.060703+00:00",
+          "outcome": "useful",
+          "q": "Можно ли безопасно убрать предварительное обнуление полного направления перед реконструкцией, не ослабив транзакционность и finite-проверки?"
+        },
         {
           "date": "2026-07-21T23:36:38.700859+00:00",
           "outcome": "useful",
@@ -759,10 +1213,11 @@
           "q": "How should an equality-only OCP with fixed initial states flow from TNLPAdapter make_constraint through StageNlpTopology and EqualityStageKktAssembler into the candidate-first backend, and which unsupported layouts must fall back to the stable solver?"
         }
       ],
-      "score": 1.983604247,
+      "score": 2.972713654,
       "source_file": "cxx23/include/ipopt/cxx23/stage_structured_candidate_backend.hpp",
-      "status": "preferred",
-      "uses": 2
+      "status": "contested",
+      "uses": 4,
+      "verdict": "useful"
     },
     "cxx23_include_ipopt_cxx23_stage_structured_nlp_preparedstagederivativeprovider": {
       "code_fingerprint": "47f4cc015989ab7bededa46260ab9f1bd0853c178564c9206006481789b4fcee",
@@ -775,7 +1230,7 @@
           "q": "How should an equality-only OCP with fixed initial states flow from TNLPAdapter make_constraint through StageNlpTopology and EqualityStageKktAssembler into the candidate-first backend, and which unsupported layouts must fall back to the stable solver?"
         }
       ],
-      "score": 0.991013387,
+      "score": 0.986139602,
       "source_file": "cxx23/include/ipopt/cxx23/stage_structured_nlp.hpp",
       "status": "tentative",
       "uses": 1
@@ -801,13 +1256,13 @@
           "q": "How should an equality-only OCP with fixed initial states flow from TNLPAdapter make_constraint through StageNlpTopology and EqualityStageKktAssembler into the candidate-first backend, and which unsupported layouts must fall back to the stable solver?"
         }
       ],
-      "score": 2.975798358,
+      "score": 2.961163438,
       "source_file": "cxx23/include/ipopt/cxx23/stage_structured_nlp.hpp",
       "status": "preferred",
       "uses": 3
     },
     "cxx23_tests_any_nlp_problem_test_testborrowedproblemretainsownercaches": {
-      "code_fingerprint": "b76a41b1c60152b8222e9ef5c238f5080b2862172c054d594976b87a80783d9c",
+      "code_fingerprint": "ad2f8d7a3cc8ec2359bfdf6f533ecd67442350524a2f9ca4ad65f92ac71ef529",
       "label": "TestBorrowedProblemRetainsOwnerCaches()",
       "last": "2026-07-22T01:45:27.174994+00:00",
       "provenance": [
@@ -817,7 +1272,7 @@
           "q": "Где был основной overhead CAR2 candidate и как безопасно убрать его без изменения stable ABI?"
         }
       ],
-      "score": 0.994644401,
+      "score": 0.989752758,
       "source_file": "cxx23/tests/any_nlp_problem_test.cpp",
       "status": "tentative",
       "uses": 1
@@ -833,13 +1288,13 @@
           "q": "Как live Ipopt full-KKT проходит через bounds, path inequalities, complementarity condensation, stage backend, inertia certification, reconstruction и restoration fallback?"
         }
       ],
-      "score": 0.99259086,
+      "score": 0.987709317,
       "source_file": "cxx23/tests/legacy_primal_dual_stage_canary_test.cpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_tests_primal_dual_bordered_stage_kkt_assembler_test": {
-      "code_fingerprint": "7a5778f6684d7ae93a6e6a0aa96c5e2f07c3d9fbe8d4723cc235e1cce7fadc76",
+      "code_fingerprint": "d1873aec1e026a450bc501b908609b09df99ab2d2c5a94d1713eead1804833df",
       "label": "primal_dual_bordered_stage_kkt_assembler_test.cpp",
       "last": "2026-07-22T06:57:16.970115+00:00",
       "provenance": [
@@ -849,13 +1304,75 @@
           "q": "Как сократить работу нормализованного bordered-stage assembler на CAR2, сохранив exact symmetry, arbitrary-state fallback, inertia и residual gates?"
         }
       ],
-      "score": 0.999633409,
+      "score": 0.994717231,
       "source_file": "cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp",
       "status": "tentative",
       "uses": 1
     },
+    "cxx23_tests_primal_dual_bordered_stage_kkt_assembler_test_fourstatenormalizationmodel": {
+      "code_fingerprint": "d1873aec1e026a450bc501b908609b09df99ab2d2c5a94d1713eead1804833df",
+      "label": "FourStateNormalizationModel",
+      "last": "2026-07-22T07:37:25.386375+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T07:37:25.386375+00:00",
+          "outcome": "corrected",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        },
+        {
+          "date": "2026-07-22T07:37:10.110720+00:00",
+          "outcome": "useful",
+          "q": "Изучи данный солвер NLP и всего его пулл реквесты и форки, а также модификации, а также ~/projects/fatrop-research - я хочу ускорять Ipopt и переписывать его на C++23, а также AnyAny, попутно улучшая перфоманс, а также робастность."
+        }
+      ],
+      "score": -4.066e-06,
+      "source_file": "cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
+    "cxx23_tests_primal_dual_bordered_stage_kkt_assembler_test_fourstatenormalizationprovider": {
+      "code_fingerprint": "d1873aec1e026a450bc501b908609b09df99ab2d2c5a94d1713eead1804833df",
+      "label": "FourStateNormalizationProvider",
+      "last": "2026-07-22T10:37:21.690029+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T10:37:21.690029+00:00",
+          "outcome": "useful",
+          "q": "Можно ли ускорить four-state bordered direction reconstruction, сохранив порядок преобразования normalized dynamics?"
+        }
+      ],
+      "score": 0.998235964,
+      "source_file": "cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp",
+      "status": "tentative",
+      "uses": 1
+    },
+    "cxx23_tests_primal_dual_bordered_stage_kkt_assembler_test_testfixedfourstatenormalization": {
+      "code_fingerprint": "d1873aec1e026a450bc501b908609b09df99ab2d2c5a94d1713eead1804833df",
+      "label": "TestFixedFourStateNormalization()",
+      "last": "2026-07-22T10:39:21.755912+00:00",
+      "neg": 1,
+      "provenance": [
+        {
+          "date": "2026-07-22T10:39:21.755912+00:00",
+          "outcome": "corrected",
+          "q": "What is the current accepted CAR2 x86-64-v3 Callgrind baseline after fixed four-state reconstruction?"
+        },
+        {
+          "date": "2026-07-22T10:37:21.690029+00:00",
+          "outcome": "useful",
+          "q": "Можно ли ускорить four-state bordered direction reconstruction, сохранив порядок преобразования normalized dynamics?"
+        }
+      ],
+      "score": -3.2052e-05,
+      "source_file": "cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp",
+      "status": "contested",
+      "uses": 1,
+      "verdict": "dead end"
+    },
     "cxx23_tests_stage_structured_candidate_backend_test_testindependentinertiaproofgate": {
-      "code_fingerprint": "b219604e96f6b0f710072d8c4bac4377c886d129d6ee22f926c7b44505f551c3",
+      "code_fingerprint": "00be663f0b5cd8647da37e7c83e3a8035429e7613d9e1732b272740666ca4da8",
       "label": "TestIndependentInertiaProofGate()",
       "last": "2026-07-21T23:11:43.701845+00:00",
       "provenance": [
@@ -865,13 +1382,13 @@
           "q": "Как live DTOC3 candidate-first запрос проходит через lazy factory, equality stage assembler, independent full inertia proof, numeric block factor и stable fallback?"
         }
       ],
-      "score": 0.992194112,
+      "score": 0.98731452,
       "source_file": "cxx23/tests/stage_structured_candidate_backend_test.cpp",
       "status": "tentative",
       "uses": 1
     },
     "cxx23_tests_stage_structured_candidate_backend_test_testlazyfactorylifecycle": {
-      "code_fingerprint": "b219604e96f6b0f710072d8c4bac4377c886d129d6ee22f926c7b44505f551c3",
+      "code_fingerprint": "00be663f0b5cd8647da37e7c83e3a8035429e7613d9e1732b272740666ca4da8",
       "label": "TestLazyFactoryLifecycle()",
       "last": "2026-07-21T23:11:43.701845+00:00",
       "provenance": [
@@ -881,7 +1398,7 @@
           "q": "Как live DTOC3 candidate-first запрос проходит через lazy factory, equality stage assembler, independent full inertia proof, numeric block factor и stable fallback?"
         }
       ],
-      "score": 0.992194112,
+      "score": 0.98731452,
       "source_file": "cxx23/tests/stage_structured_candidate_backend_test.cpp",
       "status": "tentative",
       "uses": 1
@@ -897,7 +1414,7 @@
           "q": "Где безопасно реализовать opt-in guarded replacement C++23 direction в legacy Ipopt?"
         }
       ],
-      "score": 0.989529063,
+      "score": 0.984662578,
       "source_file": "",
       "status": "tentative",
       "uses": 1
@@ -913,7 +1430,7 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 0.985375471,
+      "score": 0.980529413,
       "source_file": "src/Algorithm/IpAlgBuilder.cpp",
       "status": "tentative",
       "uses": 1
@@ -929,7 +1446,7 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 0.985375471,
+      "score": 0.980529413,
       "source_file": "src/Algorithm/IpAlgBuilder.cpp",
       "status": "tentative",
       "uses": 1
@@ -945,7 +1462,7 @@
           "q": "Как restoration phase создаёт PDSystemSolver и где безопасно встроить C++23 full-system runtime canary без изменения stable ABI?"
         }
       ],
-      "score": 0.989082909,
+      "score": 0.984218618,
       "source_file": "src/Algorithm/IpAugRestoSystemSolver.hpp",
       "status": "tentative",
       "uses": 1
@@ -966,7 +1483,7 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 1.97233713,
+      "score": 1.962637213,
       "source_file": "src/Algorithm/IpIpoptCalculatedQuantities.hpp",
       "status": "preferred",
       "uses": 2
@@ -982,7 +1499,7 @@
           "q": "Какие живые maps fixed variables, equality/inequality ordering и NLPScalingObject scales должен экспортировать TNLPAdapter/OrigIpoptNLP в тонкий C++23 bridge, кто ими владеет и когда они становятся валидны?"
         }
       ],
-      "score": 0.987935453,
+      "score": 0.983076805,
       "source_file": "src/Algorithm/IpNLPScaling.hpp",
       "status": "tentative",
       "uses": 1
@@ -1003,7 +1520,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 1.975394038,
+      "score": 1.965679087,
       "source_file": "src/Algorithm/IpOrigIpoptNLP.cpp",
       "status": "preferred",
       "uses": 2
@@ -1019,7 +1536,7 @@
           "q": "Какие живые maps fixed variables, equality/inequality ordering и NLPScalingObject scales должен экспортировать TNLPAdapter/OrigIpoptNLP в тонкий C++23 bridge, кто ими владеет и когда они становятся валидны?"
         }
       ],
-      "score": 0.987935453,
+      "score": 0.983076805,
       "source_file": "src/Algorithm/IpOrigIpoptNLP.hpp",
       "status": "tentative",
       "uses": 1
@@ -1035,13 +1552,13 @@
           "q": "Какие инварианты ReOptimizeTNLP и кэшей должен сохранять новый SolveSession?"
         }
       ],
-      "score": 0.986961659,
+      "score": 0.9821078,
       "source_file": "src/Algorithm/IpOrigIpoptNLP.cpp",
       "status": "tentative",
       "uses": 1
     },
     "src_algorithm_ippdfullspacesolver_pdfullspacesolver": {
-      "code_fingerprint": "5307480478bacb5ec30c9a952fa6b5aa0dfd25958b6766cb59033a5f85c186f7",
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
       "label": "PDFullSpaceSolver",
       "last": "2026-07-21T23:36:38.700859+00:00",
       "provenance": [
@@ -1071,13 +1588,45 @@
           "q": "Где безопасно встроить C++23 full-system runtime canary, не ломая retry state machine PDFullSpaceSolver и stable ABI?"
         }
       ],
-      "score": 6.925715408,
+      "score": 6.89165487,
       "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
       "status": "preferred",
       "uses": 7
     },
+    "src_algorithm_ippdfullspacesolver_pdfullspacesolver_applykkt": {
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
+      "label": "ApplyKKT",
+      "last": "2026-07-22T12:24:20.648538+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T12:24:20.648538+00:00",
+          "outcome": "useful",
+          "q": "Интегрируй FGMRES именно вместо штатного iterative refinement в PDFullSpaceSolver, а не как отдельный canary-solve с нуля. Используй уже полученный direct-шаг как x_0, текущую факторизацию как right preconditioner без повторной факторизации и full KKT residual как оператор. Сравни с штатным refinement по времени, backsolve/KKT-apply, сходимости и траектории Ipopt. Отдельно протестируй K_delta/M=K_delta и K/M=K_delta. Проведи A/B-бенчмарки на CAR2 и DTOC3."
+        }
+      ],
+      "score": 0.999950952,
+      "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_algorithm_ippdfullspacesolver_pdfullspacesolver_computeresiduals": {
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
+      "label": "ComputeResiduals",
+      "last": "2026-07-22T12:24:20.648538+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T12:24:20.648538+00:00",
+          "outcome": "useful",
+          "q": "Интегрируй FGMRES именно вместо штатного iterative refinement в PDFullSpaceSolver, а не как отдельный canary-solve с нуля. Используй уже полученный direct-шаг как x_0, текущую факторизацию как right preconditioner без повторной факторизации и full KKT residual как оператор. Сравни с штатным refinement по времени, backsolve/KKT-apply, сходимости и траектории Ipopt. Отдельно протестируй K_delta/M=K_delta и K/M=K_delta. Проведи A/B-бенчмарки на CAR2 и DTOC3."
+        }
+      ],
+      "score": 0.999950952,
+      "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
+      "status": "tentative",
+      "uses": 1
+    },
     "src_algorithm_ippdfullspacesolver_pdfullspacesolver_solveonce": {
-      "code_fingerprint": "5307480478bacb5ec30c9a952fa6b5aa0dfd25958b6766cb59033a5f85c186f7",
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
       "label": "SolveOnce",
       "last": "2026-07-21T20:58:13.169485+00:00",
       "provenance": [
@@ -1097,10 +1646,42 @@
           "q": "Как PDFullSpaceSolver, StdAugSystemSolver и TSymLinearSolver определяют, когда переиспользовать численную факторизацию для нескольких RHS, и какой явный factorize/solve_rhs lifecycle нужен direct preconditioner?"
         }
       ],
-      "score": 2.967239363,
+      "score": 2.952646536,
       "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
       "status": "preferred",
       "uses": 3
+    },
+    "src_algorithm_ippdfullspacesolver_pdfullspacesolver_solvewithcurrentfactorization": {
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
+      "label": "SolveWithCurrentFactorization",
+      "last": "2026-07-22T12:24:20.648538+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T12:24:20.648538+00:00",
+          "outcome": "useful",
+          "q": "Интегрируй FGMRES именно вместо штатного iterative refinement в PDFullSpaceSolver, а не как отдельный canary-solve с нуля. Используй уже полученный direct-шаг как x_0, текущую факторизацию как right preconditioner без повторной факторизации и full KKT residual как оператор. Сравни с штатным refinement по времени, backsolve/KKT-apply, сходимости и траектории Ipopt. Отдельно протестируй K_delta/M=K_delta и K/M=K_delta. Проведи A/B-бенчмарки на CAR2 и DTOC3."
+        }
+      ],
+      "score": 0.999950952,
+      "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_algorithm_ippdfullspacesolver_pdfullspacesolver_solvewithfgmres": {
+      "code_fingerprint": "5bb3885b6a141705cfd5e0b5e10f67b983a8af584a4cf0d4ea6a5e6588ea4854",
+      "label": "SolveWithFgmres",
+      "last": "2026-07-22T12:24:20.648538+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T12:24:20.648538+00:00",
+          "outcome": "useful",
+          "q": "Интегрируй FGMRES именно вместо штатного iterative refinement в PDFullSpaceSolver, а не как отдельный canary-solve с нуля. Используй уже полученный direct-шаг как x_0, текущую факторизацию как right preconditioner без повторной факторизации и full KKT residual как оператор. Сравни с штатным refinement по времени, backsolve/KKT-apply, сходимости и траектории Ipopt. Отдельно протестируй K_delta/M=K_delta и K/M=K_delta. Проведи A/B-бенчмарки на CAR2 и DTOC3."
+        }
+      ],
+      "score": 0.999950952,
+      "source_file": "src/Algorithm/IpPDFullSpaceSolver.hpp",
+      "status": "tentative",
+      "uses": 1
     },
     "src_algorithm_ippdperturbationhandler_pdperturbationhandler": {
       "code_fingerprint": "9ab0dd766824ca12288426e84d64ff979844ae610d852fcafef2f7ac4e87b8db",
@@ -1128,7 +1709,7 @@
           "q": "Как PDFullSpaceSolver и PDSystemSolver вызывают AugSystemSolver::Solve или MultiSolve, где строятся rhs и IteratesVector, и как retries по perturbation inertia и IncreaseQuality должны быть сохранены при opt-in backend?"
         }
       ],
-      "score": 3.960481693,
+      "score": 3.941004119,
       "source_file": "src/Algorithm/IpPDPerturbationHandler.hpp",
       "status": "preferred",
       "uses": 4
@@ -1144,7 +1725,7 @@
           "q": "Как restoration phase создаёт PDSystemSolver и где безопасно встроить C++23 full-system runtime canary без изменения stable ABI?"
         }
       ],
-      "score": 0.989082909,
+      "score": 0.984218618,
       "source_file": "src/Algorithm/IpRestoIpoptNLP.hpp",
       "status": "tentative",
       "uses": 1
@@ -1160,7 +1741,7 @@
           "q": "Как restoration phase создаёт PDSystemSolver и где безопасно встроить C++23 full-system runtime canary без изменения stable ABI?"
         }
       ],
-      "score": 0.989082909,
+      "score": 0.984218618,
       "source_file": "src/Algorithm/IpRestoMinC_1Nrm.hpp",
       "status": "tentative",
       "uses": 1
@@ -1181,7 +1762,7 @@
           "q": "Как PDFullSpaceSolver, StdAugSystemSolver и TSymLinearSolver определяют, когда переиспользовать численную факторизацию для нескольких RHS, и какой явный factorize/solve_rhs lifecycle нужен direct preconditioner?"
         }
       ],
-      "score": 1.975930174,
+      "score": 1.966212587,
       "source_file": "src/Algorithm/IpStdAugSystemSolver.hpp",
       "status": "preferred",
       "uses": 2
@@ -1197,7 +1778,7 @@
           "q": "Как PDFullSpaceSolver, StdAugSystemSolver и TSymLinearSolver определяют, когда переиспользовать численную факторизацию для нескольких RHS, и какой явный factorize/solve_rhs lifecycle нужен direct preconditioner?"
         }
       ],
-      "score": 0.987639352,
+      "score": 0.98278216,
       "source_file": "src/Algorithm/LinearSolvers/IpSparseSymLinearSolverInterface.hpp",
       "status": "tentative",
       "uses": 1
@@ -1223,10 +1804,26 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 2.961305645,
+      "score": 2.946742,
       "source_file": "src/Algorithm/LinearSolvers/IpTSymLinearSolver.hpp",
       "status": "preferred",
       "uses": 3
+    },
+    "src_algorithm_linearsolvers_iptsymlinearsolver_tsymlinearsolver_multisolve": {
+      "code_fingerprint": "d184785d1412b6a0d1e36c09085eb17e6efee3432bce0ffa3a09c3b017da5dde",
+      "label": "MultiSolve",
+      "last": "2026-07-22T12:24:20.648538+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-22T12:24:20.648538+00:00",
+          "outcome": "useful",
+          "q": "Интегрируй FGMRES именно вместо штатного iterative refinement в PDFullSpaceSolver, а не как отдельный canary-solve с нуля. Используй уже полученный direct-шаг как x_0, текущую факторизацию как right preconditioner без повторной факторизации и full KKT residual как оператор. Сравни с штатным refinement по времени, backsolve/KKT-apply, сходимости и траектории Ipopt. Отдельно протестируй K_delta/M=K_delta и K/M=K_delta. Проведи A/B-бенчмарки на CAR2 и DTOC3."
+        }
+      ],
+      "score": 0.999950952,
+      "source_file": "src/Algorithm/LinearSolvers/IpTSymLinearSolver.hpp",
+      "status": "tentative",
+      "uses": 1
     },
     "src_common_ipcachedresults_cachedresults_t_invalidateresult": {
       "code_fingerprint": "68ba659dfc07e349a1ecd5dc22e35a892a183addbb0260b0ef8b7fbe969a1f7a",
@@ -1239,7 +1836,7 @@
           "q": "Какие инварианты ReOptimizeTNLP и кэшей должен сохранять новый SolveSession?"
         }
       ],
-      "score": 0.986961659,
+      "score": 0.9821078,
       "source_file": "src/Common/IpCachedResults.hpp",
       "status": "tentative",
       "uses": 1
@@ -1255,7 +1852,7 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 0.985375471,
+      "score": 0.980529413,
       "source_file": "src/Common/IpSmartPtr.hpp",
       "status": "tentative",
       "uses": 1
@@ -1281,7 +1878,7 @@
           "q": "Где безопасно встроить C++23 full-system runtime canary, не ломая retry state machine PDFullSpaceSolver и stable ABI?"
         }
       ],
-      "score": 2.967665311,
+      "score": 2.953070389,
       "source_file": "src/Interfaces/IpIpoptApplication.hpp",
       "status": "preferred",
       "uses": 3
@@ -1297,7 +1894,7 @@
           "q": "Какие инварианты ReOptimizeTNLP и кэшей должен сохранять новый SolveSession?"
         }
       ],
-      "score": 0.986961659,
+      "score": 0.9821078,
       "source_file": "src/Interfaces/IpIpoptApplication.cpp",
       "status": "tentative",
       "uses": 1
@@ -1313,7 +1910,7 @@
           "q": "Какие инварианты ReOptimizeTNLP и кэшей должен сохранять новый SolveSession?"
         }
       ],
-      "score": 0.986961659,
+      "score": 0.9821078,
       "source_file": "src/Interfaces/IpIpoptApplication.cpp",
       "status": "tentative",
       "uses": 1
@@ -1329,7 +1926,7 @@
           "q": "Как честно сравнивать текущий Ipopt, clean HEAD и FATROP на CUTEst corpus?"
         }
       ],
-      "score": 0.989529055,
+      "score": 0.984662569,
       "source_file": "src/Interfaces/IpIpoptApplication.hpp",
       "status": "tentative",
       "uses": 1
@@ -1345,7 +1942,7 @@
           "q": "Какие живые maps fixed variables, equality/inequality ordering и NLPScalingObject scales должен экспортировать TNLPAdapter/OrigIpoptNLP в тонкий C++23 bridge, кто ими владеет и когда они становятся валидны?"
         }
       ],
-      "score": 0.987935453,
+      "score": 0.983076805,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1366,7 +1963,7 @@
           "q": "Как TNLP проходит к KKT и linear solver, и где SmartPtr создаёт связанность?"
         }
       ],
-      "score": 1.973310924,
+      "score": 1.963606218,
       "source_file": "src/Interfaces/IpTNLPAdapter.hpp",
       "status": "preferred",
       "uses": 2
@@ -1382,7 +1979,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1398,7 +1995,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1414,7 +2011,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1430,7 +2027,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1446,7 +2043,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/Interfaces/IpTNLPAdapter.cpp",
       "status": "tentative",
       "uses": 1
@@ -1462,7 +2059,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/LinAlg/IpExpansionMatrix.cpp",
       "status": "tentative",
       "uses": 1
@@ -1478,7 +2075,7 @@
           "q": "Как TNLPAdapter и OrigIpoptNLP преобразуют fixed variables, ограничения и scaling для Jv, JTv и Hv?"
         }
       ],
-      "score": 0.987458585,
+      "score": 0.982602282,
       "source_file": "src/LinAlg/IpExpansionMatrix.cpp",
       "status": "tentative",
       "uses": 1

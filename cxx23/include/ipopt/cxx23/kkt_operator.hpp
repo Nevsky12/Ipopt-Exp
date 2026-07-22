@@ -156,14 +156,9 @@ public:
       {
          return evaluated;
       }
-      if( EvaluationResult evaluated = problem_.nlp_jacobian_transpose_product(
-             point.x, direction.dual, jacobian_transpose_product_);
-          !evaluated )
-      {
-         return evaluated;
-      }
-      if( EvaluationResult evaluated = problem_.nlp_jacobian_product(
-             point.x, direction.primal, jacobian_product_);
+      if( EvaluationResult evaluated = problem_.nlp_jacobian_products(
+             point.x, direction.primal, direction.dual,
+             jacobian_product_, jacobian_transpose_product_);
           !evaluated )
       {
          return evaluated;

@@ -21,19 +21,41 @@
 
 namespace Ipopt::Cxx23
 {
-/** Immutable views for one reference-free primal-dual solve attempt.
+/** Views for one reference-free primal-dual solve attempt.
  *
  * The backend owns perturbation selection, inertia retries, refinement, and
  * any quality escalation. These views are valid only for the duration of
- * candidate_first_solve(); retaining them is an error.
+ * candidate_first_solve(); retaining them is an error. direction_output is an
+ * optional caller-owned, non-publishing scratch span. A backend may overwrite
+ * it even when the solve later fails; the caller must expose it only after a
+ * successful result explicitly selects it and all outer validation passes.
  */
 struct CandidateFirstSolveRequest
 {
+   CandidateFirstSolveRequest(
+      PrimalDualKktOperator&  kkt_value,
+      PrimalDualState         state_value,
+      std::span<const Number> rhs_value,
+      Index                   required_negative_eigenvalues_value = 0,
+      bool                    restoration_problem_value = false,
+      std::span<Number>       direction_output_value = {}
+   )
+      : kkt(kkt_value),
+        state(state_value),
+        rhs(rhs_value),
+        required_negative_eigenvalues(
+           required_negative_eigenvalues_value),
+        restoration_problem(restoration_problem_value),
+        direction_output(direction_output_value)
+   {
+   }
+
    PrimalDualKktOperator& kkt;
    PrimalDualState state;
    std::span<const Number> rhs;
    Index required_negative_eigenvalues = 0;
    bool restoration_problem = false;
+   std::span<Number> direction_output;
 };
 
 enum class CandidateFirstInertiaCertainty
@@ -61,9 +83,12 @@ struct CandidateFirstWorkStatistics
 
 /** A backend's final proposed solution of KKT * direction = rhs.
  *
- * direction is deliberately unscaled by PDSystemSolver's alpha. The wrapper
- * independently checks dimensions, finiteness, the exact inertia certificate,
- * and the true residual with accepted_regularization before committing it.
+ * direction is deliberately unscaled by PDSystemSolver's alpha. Normally it
+ * owns the proposal. A backend may instead leave it empty and set
+ * direction_written_to_request_output after completely writing the request's
+ * exact-size output span. The wrapper independently checks dimensions,
+ * finiteness, the exact inertia certificate, and the true residual with
+ * accepted_regularization before committing either representation.
  */
 struct CandidateFirstSolveResult
 {
@@ -72,6 +97,7 @@ struct CandidateFirstSolveResult
    CandidateFirstInertiaCertificate inertia;
    CandidateFirstWorkStatistics work;
    bool converged = false;
+   bool direction_written_to_request_output = false;
 };
 
 template <class Backend>

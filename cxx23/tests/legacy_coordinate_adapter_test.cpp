@@ -420,6 +420,29 @@ void TestAllTransformations()
       std::array<Number, 3>{{73.25, -2.5, 38.2}},
       "adapted transposed Jacobian product");
 
+   const int jacobian_products_before = counters->jacobian_products;
+   const int transpose_products_before = counters->jacobian_transpose_products;
+   std::array<Number, 4> paired_jacobian_product{};
+   std::array<Number, 3> paired_transpose_product{};
+   Check(
+      problem.nlp_jacobian_products(
+         x, primal_direction, dual_direction,
+         paired_jacobian_product, paired_transpose_product).has_value(),
+      "adapted fused Jacobian products failed");
+   CheckNear(
+      paired_jacobian_product,
+      std::array<Number, 4>{{9.3, -6.65, -8.25, 104.}},
+      "adapted fused Jacobian product");
+   CheckNear(
+      paired_transpose_product,
+      std::array<Number, 3>{{73.25, -2.5, 38.2}},
+      "adapted fused transposed Jacobian product");
+   Check(
+      counters->jacobian_products == jacobian_products_before + 1 &&
+         counters->jacobian_transpose_products == transpose_products_before + 1 &&
+         counters->jacobian_values == jacobian_values_before,
+      "adapted fused native path changed callback counts or materialized values");
+
    std::array<Index, 5> hessian_rows{};
    std::array<Index, 5> hessian_columns{};
    Check(
@@ -486,6 +509,24 @@ void TestFallbackCapabilitiesAndStrongFailures()
       fallback.nlp_jacobian_product(x, primal_direction, jacobian_product).has_value(),
       "adapted fallback Jacobian product failed");
    Check(fallback_counters->jacobian_values == 1, "fallback Jacobian was not materialized");
+   std::array<Number, 4> paired_jacobian_product{};
+   std::array<Number, 3> paired_transpose_product{};
+   Check(
+      fallback.nlp_jacobian_products(
+         x, primal_direction, dual_direction,
+         paired_jacobian_product, paired_transpose_product).has_value(),
+      "adapted fused fallback Jacobian products failed");
+   CheckNear(
+      paired_jacobian_product,
+      std::array<Number, 4>{{9.3, -6.65, -8.25, 104.}},
+      "adapted fused fallback Jacobian product");
+   CheckNear(
+      paired_transpose_product,
+      std::array<Number, 3>{{73.25, -2.5, 38.2}},
+      "adapted fused fallback transposed Jacobian product");
+   Check(
+      fallback_counters->jacobian_values == 2,
+      "fused fallback Jacobian products materialized values more than once");
    std::array<Number, 3> hessian_product{};
    Check(
       fallback.nlp_hessian_product(
@@ -512,13 +553,24 @@ void TestFallbackCapabilitiesAndStrongFailures()
       untouched_jacobian == std::array<Number, 4>{{104., 105., 106., 107.}},
       "failed adapted Jacobian product modified its output");
 
+   std::array<Number, 4> untouched_paired_jacobian{{108., 109., 110., 111.}};
+   std::array<Number, 3> untouched_paired_transpose{{112., 113., 114.}};
+   const EvaluationResult paired_jacobian_failure = failing.nlp_jacobian_products(
+      x, primal_direction, dual_direction,
+      untouched_paired_jacobian, untouched_paired_transpose);
+   Check(!paired_jacobian_failure.has_value(), "fused Jacobian product failure was ignored");
+   Check(
+      untouched_paired_jacobian == std::array<Number, 4>{{108., 109., 110., 111.}} &&
+         untouched_paired_transpose == std::array<Number, 3>{{112., 113., 114.}},
+      "failed adapted fused Jacobian products modified an output");
+
    failing_counters->fail_hessian_product = true;
-   std::array<Number, 3> untouched_hessian{{108., 109., 110.}};
+   std::array<Number, 3> untouched_hessian{{115., 116., 117.}};
    const EvaluationResult hessian_failure = failing.nlp_hessian_product(
       x, 1.5, dual_direction, primal_direction, untouched_hessian);
    Check(!hessian_failure.has_value(), "Hessian product failure was ignored");
    Check(
-      untouched_hessian == std::array<Number, 3>{{108., 109., 110.}},
+      untouched_hessian == std::array<Number, 3>{{115., 116., 117.}},
       "failed adapted Hessian product modified its output");
 }
 

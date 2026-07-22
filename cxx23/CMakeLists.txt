@@ -357,6 +357,22 @@ if(IPOPT_CXX23_BUILD_TESTS)
       NAME ipopt_cxx23_legacy_primal_dual_stage_canary
       COMMAND ipopt_cxx23_legacy_primal_dual_stage_canary_test
     )
+
+    add_executable(
+      ipopt_cxx23_pdfullspace_fgmres_refinement_test
+      tests/pdfullspace_fgmres_refinement_test.cpp
+    )
+    target_link_libraries(
+      ipopt_cxx23_pdfullspace_fgmres_refinement_test
+      PRIVATE Ipopt::cxx23 ipopt_cxx23_legacy_ipopt
+    )
+    ipopt_cxx23_enable_strict_warnings(
+      ipopt_cxx23_pdfullspace_fgmres_refinement_test
+    )
+    add_test(
+      NAME ipopt_cxx23_pdfullspace_fgmres_refinement
+      COMMAND ipopt_cxx23_pdfullspace_fgmres_refinement_test
+    )
   endif()
 endif()
 

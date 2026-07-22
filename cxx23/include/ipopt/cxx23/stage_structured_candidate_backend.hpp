@@ -34,6 +34,10 @@ struct StageStructuredLayout
     * still reconstructing a full eight-block direction.
     */
    Index inertia_dimension = 0;
+   /** The bound assembler proved that reconstruction writes every full entry.
+    * Uncertified assemblers retain runtime NaN poisoning before reconstruction.
+    */
+   bool full_direction_overwrite_certified = false;
 };
 
 /** Exact inertia contribution removed by a congruent condensation. */
@@ -83,8 +87,9 @@ struct StageStructuredAssemblyReport
  * assemble() fills complete row-major diagonal blocks, lower blocks, and one
  * reduced RHS. If it condenses variables, eliminated_inertia must be an exact
  * inertia contribution from the same congruence transformation. reconstruct()
- * must undo the permutation/condensation into full Ipopt flat ordering. Neither
- * method may retain the request or any supplied span.
+ * must overwrite every supplied full-direction entry while undoing the
+ * permutation/condensation into full Ipopt flat ordering. Neither method may
+ * retain the request or any supplied span.
  */
 template <class Assembler>
 concept StageStructuredAssembler = requires(
@@ -230,7 +235,10 @@ public:
             EvaluationErrorCode::invalid_layout, configuration_error_);
       }
       if( request.rhs.size() != layout_.full_direction_dimension ||
-          request.kkt.flat_dimension() != layout_.full_direction_dimension )
+          request.kkt.flat_dimension() != layout_.full_direction_dimension ||
+          (!request.direction_output.empty() &&
+           request.direction_output.size() !=
+              layout_.full_direction_dimension) )
       {
          return Failure(
             EvaluationErrorCode::dimension_mismatch,
@@ -379,17 +387,31 @@ public:
             continue;
          }
 
-         std::ranges::fill(full_direction_, 0.);
+         const bool use_request_direction_output =
+            !request.direction_output.empty();
+         std::span<Number> full_direction = use_request_direction_output
+            ? request.direction_output
+            : std::span<Number>(full_direction_);
+#ifndef NDEBUG
+         std::ranges::fill(
+            full_direction, std::numeric_limits<Number>::quiet_NaN());
+#else
+         if( !layout_.full_direction_overwrite_certified )
+         {
+            std::ranges::fill(
+               full_direction, std::numeric_limits<Number>::quiet_NaN());
+         }
+#endif
          EvaluationValue<StageStructuredWork> reconstructed =
             assembler_.reconstruct_stage_direction(
-               request, regularization, structured_solution_, full_direction_);
+               request, regularization, structured_solution_, full_direction);
          if( !reconstructed )
          {
             return std::unexpected(reconstructed.error());
          }
          AddWork(work, *reconstructed);
          if( !std::ranges::all_of(
-                full_direction_, [](Number value) { return std::isfinite(value); }) )
+                full_direction, [](Number value) { return std::isfinite(value); }) )
          {
             return Failure(
                EvaluationErrorCode::nonfinite_output,
@@ -397,7 +419,14 @@ public:
          }
 
          CandidateFirstSolveResult result;
-         result.direction = full_direction_;
+         if( use_request_direction_output )
+         {
+            result.direction_written_to_request_output = true;
+         }
+         else
+         {
+            result.direction = full_direction_;
+         }
          result.accepted_regularization = regularization;
          result.inertia = {
             CandidateFirstInertiaCertainty::exact,

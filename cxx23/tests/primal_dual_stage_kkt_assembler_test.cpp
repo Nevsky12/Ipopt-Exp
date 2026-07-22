@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -310,7 +311,8 @@ void TestFullEightBlockAssemblyAndCache()
    Check(
       layout.block_sizes == std::vector<Index>({5, 2}) &&
          layout.inertia_dimension == 7 &&
-         layout.full_direction_dimension == 13,
+         layout.full_direction_dimension == 13 &&
+         layout.full_direction_overwrite_certified,
       "full stage assembler produced the wrong dimensions");
    const std::array<Index, 7> expected_permutation{{1, 0, 3, 5, 6, 2, 4}};
    Check(
@@ -389,18 +391,58 @@ SparseStageDerivativeProvider MakeDetachedSparseProvider()
    return SparseStageDerivativeProvider(exemplar, MakeTopology());
 }
 
+struct StageDerivativeBufferStorage
+{
+   explicit StageDerivativeBufferStorage(
+      StageDerivativeStorage storage,
+      Number                 initial
+   )
+      : stage_hessians(storage.stage_hessians, initial),
+        dynamics(storage.dynamics_jacobians_transposed, initial),
+        path_equalities(
+           storage.path_equality_jacobians_transposed, initial),
+        path_inequalities(
+           storage.path_inequality_jacobians_transposed, initial)
+   {
+   }
+
+   StageDerivativeBuffers buffers()
+   {
+      return {stage_hessians, dynamics, path_equalities, path_inequalities};
+   }
+
+   bool operator==(const StageDerivativeBufferStorage&) const = default;
+
+   std::vector<Number> stage_hessians;
+   std::vector<Number> dynamics;
+   std::vector<Number> path_equalities;
+   std::vector<Number> path_inequalities;
+};
+
 void TestSparseStageDerivativeScatter()
 {
    SparseStageDerivativeProvider provider = MakeDetachedSparseProvider();
    Check(provider.configured(), "sparse stage derivative scatter was rejected");
    PrimalDualKktOperator kkt = MakeKkt();
+   const StateStorage storage;
+   const PrimalDualState state = storage.view(13);
+   const StageDerivativeStorage derivative_storage =
+      provider.stage_nlp_topology().derivative_storage();
+   StageDerivativeBufferStorage expected_derivatives(derivative_storage, 0.);
+   StageDerivativeBufferStorage dirty_derivatives(
+      derivative_storage, std::numeric_limits<Number>::quiet_NaN());
+   Check(
+      provider.eval_stage_derivatives(
+         kkt, state.nlp, expected_derivatives.buffers()).has_value() &&
+         provider.eval_stage_derivatives(
+            kkt, state.nlp, dirty_derivatives.buffers()).has_value() &&
+         dirty_derivatives == expected_derivatives,
+      "unique sparse stage scatter retained dirty structural values");
    PrimalDualStageKktAssembler assembler(std::move(provider), kkt);
    Check(
       assembler.configured(),
       "sparse stage provider did not bind to an equivalent live KKT");
    StageStructuredCandidateBackend backend(std::move(assembler));
-   const StateStorage storage;
-   const PrimalDualState state = storage.view(13);
    const auto solved = backend.solve({kkt, state, kRhs, 3, false});
    Check(
       solved.has_value() && solved->work.derivative_product_requests == 1,

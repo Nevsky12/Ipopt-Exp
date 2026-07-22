@@ -317,6 +317,71 @@ public:
       return {};
    }
 
+   EvaluationResult eval_jacobian_products(
+      std::span<const Number> x,
+      std::span<const Number> forward_direction,
+      std::span<const Number> transpose_direction,
+      std::span<Number>       forward_result,
+      std::span<Number>       transpose_result
+   )
+   {
+      ExpandX(x);
+      ExpandDirection(forward_direction);
+      std::ranges::fill(full_constraint_direction_, 0.);
+      for( Index i = 0; i < coordinate_map_.equality_from_full_constraints.size(); ++i )
+      {
+         full_constraint_direction_[coordinate_map_.equality_from_full_constraints[i]] =
+            scaling_.equalities[i] * transpose_direction[i];
+      }
+      for( Index i = 0; i < coordinate_map_.inequality_from_full_constraints.size(); ++i )
+      {
+         full_constraint_direction_[coordinate_map_.inequality_from_full_constraints[i]] =
+            scaling_.inequalities[i] * transpose_direction[equality_count_ + i];
+      }
+      if( EvaluationResult evaluated = source_.nlp_jacobian_products(
+             full_x_, full_direction_, full_constraint_direction_,
+             full_constraint_product_, full_variable_product_);
+          !evaluated )
+      {
+         return evaluated;
+      }
+
+      const Index base_equalities = coordinate_map_.equality_from_full_constraints.size();
+      for( Index i = 0; i < base_equalities; ++i )
+      {
+         forward_result[i] = scaling_.equalities[i] *
+            full_constraint_product_[coordinate_map_.equality_from_full_constraints[i]];
+      }
+      for( Index i = 0; i < coordinate_map_.fixed_variable_equalities.size(); ++i )
+      {
+         const Index row = base_equalities + i;
+         forward_result[row] = scaling_.equalities[row] *
+            full_direction_[coordinate_map_.fixed_variable_equalities[i].full_variable];
+      }
+      for( Index i = 0; i < coordinate_map_.inequality_from_full_constraints.size(); ++i )
+      {
+         forward_result[equality_count_ + i] = scaling_.inequalities[i] *
+            full_constraint_product_[coordinate_map_.inequality_from_full_constraints[i]];
+      }
+
+      for( Index i = 0; i < structure_.variables; ++i )
+      {
+         transpose_result[i] =
+            full_variable_product_[coordinate_map_.internal_to_full_variables[i]] /
+            scaling_.variables[i];
+      }
+      for( Index i = 0; i < coordinate_map_.fixed_variable_equalities.size(); ++i )
+      {
+         const Index row = base_equalities + i;
+         const Index internal = full_to_internal_[
+            coordinate_map_.fixed_variable_equalities[i].full_variable];
+         transpose_result[internal] +=
+            scaling_.equalities[row] * transpose_direction[row] /
+            scaling_.variables[internal];
+      }
+      return {};
+   }
+
    EvaluationResult eval_hessian_product(
       std::span<const Number> x,
       Number                  objective_factor,
