@@ -723,6 +723,8 @@ IPOPT_INT64_FALSE
 IPOPT_INT64_TRUE
 IPOPT_SINGLE_FALSE
 IPOPT_SINGLE_TRUE
+BUILD_BENCHMARKS_FALSE
+BUILD_BENCHMARKS_TRUE
 coin_doxy_tagfiles
 COIN_HAS_LATEX_FALSE
 COIN_HAS_LATEX_TRUE
@@ -902,6 +904,7 @@ enable_libtool_lock
 with_dot
 with_ipopt_verbosity
 with_ipopt_checklevel
+enable_benchmarks
 with_precision
 with_intsize
 with_lapack
@@ -1601,6 +1604,7 @@ Optional Features:
                           shared library versioning (aka "SONAME") variant to
                           provide on AIX, [default=aix].
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-benchmarks     build opt-in performance benchmarks (default: no)
   --disable-mpiinit       disable that (un)loading the Ipopt library
                           initalizes (finalizes) MPI if the MPI version of
                           MUMPS is linked
@@ -24816,6 +24820,28 @@ printf "%s\n" "#define IPOPT_CHECKLEVEL $coin_checklevel" >>confdefs.h
 
 
 
+# Check whether --enable-benchmarks was given.
+if test ${enable_benchmarks+y}
+then :
+  enableval=$enable_benchmarks; case "$enableval" in
+     no | yes) ;;
+     *) as_fn_error $? "invalid argument for --enable-benchmarks: $enableval" "$LINENO" 5 ;;
+   esac
+   enable_benchmarks=$enableval
+else case e in #(
+  e) enable_benchmarks=no ;;
+esac
+fi
+
+ if test "$enable_benchmarks" = yes; then
+  BUILD_BENCHMARKS_TRUE=
+  BUILD_BENCHMARKS_FALSE='#'
+else
+  BUILD_BENCHMARKS_TRUE='#'
+  BUILD_BENCHMARKS_FALSE=
+fi
+
+
 ########################################################################
 #      Floating-point Precision   and    Integer size                  #
 ########################################################################
@@ -28441,7 +28467,7 @@ else case e in #(
 JAVA_TEST=Test.java
 CLASS_TEST=Test.class
 cat << \EOF > $JAVA_TEST
-/* #line 28444 "configure" */
+/* #line 28470 "configure" */
 public class Test {
 }
 EOF
@@ -29636,7 +29662,7 @@ printf "%s\n" "$as_me: SIPOPTAMPLINTERFACELIB_CFLAGS: \"${SIPOPTAMPLINTERFACELIB
 
 
 
-ac_config_files="$ac_config_files Makefile src/ipopt.pc src/Makefile src/Apps/AmplSolver/Makefile src/Apps/AmplSolver/ipoptamplinterface.pc test/Makefile test/run_unitTests doc/Doxyfile examples/Cpp_example/Makefile examples/recursive_nlp/Makefile examples/hs071_cpp/Makefile examples/hs071_c/Makefile examples/ScalableProblems/Makefile tutorial/CodingExercise/C/1-skeleton/Makefile tutorial/CodingExercise/C/2-mistake/Makefile tutorial/CodingExercise/C/3-solution/Makefile tutorial/CodingExercise/Cpp/1-skeleton/Makefile tutorial/CodingExercise/Cpp/2-mistake/Makefile tutorial/CodingExercise/Cpp/3-solution/Makefile tutorial/CodingExercise/Matlab/1-skeleton/startup.m tutorial/CodingExercise/Matlab/2-mistake/startup.m tutorial/CodingExercise/Matlab/3-solution/startup.m"
+ac_config_files="$ac_config_files Makefile benchmark/Makefile src/ipopt.pc src/Makefile src/Apps/AmplSolver/Makefile src/Apps/AmplSolver/ipoptamplinterface.pc test/Makefile test/run_unitTests doc/Doxyfile examples/Cpp_example/Makefile examples/recursive_nlp/Makefile examples/hs071_cpp/Makefile examples/hs071_c/Makefile examples/ScalableProblems/Makefile tutorial/CodingExercise/C/1-skeleton/Makefile tutorial/CodingExercise/C/2-mistake/Makefile tutorial/CodingExercise/C/3-solution/Makefile tutorial/CodingExercise/Cpp/1-skeleton/Makefile tutorial/CodingExercise/Cpp/2-mistake/Makefile tutorial/CodingExercise/Cpp/3-solution/Makefile tutorial/CodingExercise/Matlab/1-skeleton/startup.m tutorial/CodingExercise/Matlab/2-mistake/startup.m tutorial/CodingExercise/Matlab/3-solution/startup.m"
 
 
 if test -n "$F77" ; then
@@ -29851,6 +29877,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${COIN_HAS_LATEX_TRUE}" && test -z "${COIN_HAS_LATEX_FALSE}"; then
   as_fn_error $? "conditional \"COIN_HAS_LATEX\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${BUILD_BENCHMARKS_TRUE}" && test -z "${BUILD_BENCHMARKS_FALSE}"; then
+  as_fn_error $? "conditional \"BUILD_BENCHMARKS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${IPOPT_SINGLE_TRUE}" && test -z "${IPOPT_SINGLE_FALSE}"; then
@@ -31072,6 +31102,7 @@ do
     "contrib/sIPOPT/examples/redhess_cpp/MySensTNLP.hpp") CONFIG_LINKS="$CONFIG_LINKS contrib/sIPOPT/examples/redhess_cpp/MySensTNLP.hpp:contrib/sIPOPT/examples/redhess_cpp/MySensTNLP.hpp" ;;
     "contrib/sIPOPT/examples/redhess_cpp/redhess_cpp.cpp") CONFIG_LINKS="$CONFIG_LINKS contrib/sIPOPT/examples/redhess_cpp/redhess_cpp.cpp:contrib/sIPOPT/examples/redhess_cpp/redhess_cpp.cpp" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "benchmark/Makefile") CONFIG_FILES="$CONFIG_FILES benchmark/Makefile" ;;
     "src/ipopt.pc") CONFIG_FILES="$CONFIG_FILES src/ipopt.pc" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/Apps/AmplSolver/Makefile") CONFIG_FILES="$CONFIG_FILES src/Apps/AmplSolver/Makefile" ;;

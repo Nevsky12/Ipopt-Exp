@@ -57,6 +57,17 @@ AC_COIN_DOXYGEN
 # IPOPT_VERBOSITY and IPOPT_DEBUGLEVEL
 AC_COIN_DEBUGLEVEL
 
+AC_ARG_ENABLE([benchmarks],
+  [AS_HELP_STRING([--enable-benchmarks],
+    [build opt-in performance benchmarks (default: no)])],
+  [case "$enableval" in
+     no | yes) ;;
+     *) AC_MSG_ERROR([invalid argument for --enable-benchmarks: $enableval]) ;;
+   esac
+   enable_benchmarks=$enableval],
+  [enable_benchmarks=no])
+AM_CONDITIONAL([BUILD_BENCHMARKS], [test "$enable_benchmarks" = yes])
+
 ########################################################################
 #      Floating-point Precision   and    Integer size                  #
 ########################################################################
@@ -618,6 +629,7 @@ fi
 AC_COIN_FINALIZE_FLAGS([IpoptLib IpoptAmplInterfaceLib SIpoptLib SIpoptAmplInterfaceLib])
 
 AC_CONFIG_FILES([Makefile
+  benchmark/Makefile
   src/ipopt.pc
   src/Makefile
   src/Apps/AmplSolver/Makefile

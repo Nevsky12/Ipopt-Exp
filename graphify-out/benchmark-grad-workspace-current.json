@@ -1,0 +1,67 @@
+{
+  "benchmarks": [
+    {
+      "callback_evaluations": 140007000,
+      "compiler": "13.3.0",
+      "cplusplus": 202100,
+      "iterations": 20000000,
+      "lower_is_better": true,
+      "median": 7.33920635,
+      "metric": "nanoseconds_per_call",
+      "name": "tnlp_adapter_eval_grad_f_fixed_variable",
+      "repetitions": 7,
+      "samples": [
+        7.27938395,
+        7.29646345,
+        7.3014222,
+        7.33920635,
+        7.3506861,
+        7.40873205,
+        7.4093513
+      ],
+      "schema_version": 1,
+      "warmup": 1000
+    }
+  ],
+  "command": [
+    "/usr/bin/taskset",
+    "-c",
+    "4",
+    "/tmp/ipopt-benchmark-build.UIevkb/benchmark/tnlp_adapter_eval_grad_f_benchmark",
+    "--iterations",
+    "20000000",
+    "--repetitions",
+    "7",
+    "--warmup",
+    "1000"
+  ],
+  "comparisons": [
+    {
+      "baseline": "/home/nevskys/projects/Ipopt/graphify-out/benchmark-grad-workspace-baseline.json",
+      "baseline_median": 15.37701795,
+      "current_median": 7.33920635,
+      "max_regression_percent": 8.0,
+      "passed": true,
+      "ratio": 0.47728411151396233,
+      "regression_percent": -52.27158884860377
+    }
+  ],
+  "environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "generated_at": "2026-07-21T17:50:19.237235+00:00",
+  "host": {
+    "cpu": 4,
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+    "platform": "Linux-6.17.0-40-generic-x86_64-with-glibc2.39"
+  },
+  "schema_version": 1,
+  "source": {
+    "commit": "72a29c9aab198afa0dbb940339022a22c415a4eb",
+    "dirty": true,
+    "root": "/home/nevskys/projects/Ipopt"
+  }
+}

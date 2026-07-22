@@ -10,12 +10,73 @@ if BUILD_SIPOPT
   SUBDIRS += contrib/sIPOPT
 endif
 
+if BUILD_BENCHMARKS
+  SUBDIRS += benchmark
+endif
+
+DIST_SUBDIRS = src contrib/sIPOPT benchmark
+
 doc_DATA = README.md AUTHORS LICENSE ChangeLog.md
 
-.PHONY: test doc javadoc astyle cppcheck cppcheck-config
+EXTRA_DIST = \
+  cxx23/CMakeLists.txt \
+  cxx23/README.md \
+  cxx23/benchmarks/anyany_jacobian_product_benchmark.cpp \
+  cxx23/benchmarks/block_tridiagonal_solver_benchmark.cpp \
+  cxx23/benchmarks/fgmres_reuse_benchmark.cpp \
+  cxx23/include/ipopt/cxx23/any_nlp_problem.hpp \
+  cxx23/include/ipopt/cxx23/block_tridiagonal_solver.hpp \
+  cxx23/include/ipopt/cxx23/bordered_block_tridiagonal_solver.hpp \
+  cxx23/include/ipopt/cxx23/bordered_stage_structured_nlp.hpp \
+  cxx23/include/ipopt/cxx23/bordered_stage_structured_candidate_backend.hpp \
+  cxx23/include/ipopt/cxx23/candidate_first_backend.hpp \
+  cxx23/include/ipopt/cxx23/direct_preconditioner.hpp \
+  cxx23/include/ipopt/cxx23/equality_stage_kkt_assembler.hpp \
+  cxx23/include/ipopt/cxx23/fgmres.hpp \
+  cxx23/include/ipopt/cxx23/kkt_operator.hpp \
+  cxx23/include/ipopt/cxx23/legacy_algorithm_canary.hpp \
+  cxx23/include/ipopt/cxx23/legacy_aug_system_backend.hpp \
+  cxx23/include/ipopt/cxx23/legacy_coordinate_adapter.hpp \
+  cxx23/include/ipopt/cxx23/legacy_ipopt_bridge.hpp \
+  cxx23/include/ipopt/cxx23/legacy_matrix_snapshot.hpp \
+  cxx23/include/ipopt/cxx23/primal_dual_kkt_operator.hpp \
+  cxx23/include/ipopt/cxx23/primal_dual_bordered_stage_kkt_assembler.hpp \
+  cxx23/include/ipopt/cxx23/primal_dual_stage_kkt_assembler.hpp \
+  cxx23/include/ipopt/cxx23/restoration_stage_nlp.hpp \
+  cxx23/include/ipopt/cxx23/solve_session.hpp \
+  cxx23/include/ipopt/cxx23/sparse_bordered_stage_derivative_provider.hpp \
+  cxx23/include/ipopt/cxx23/sparse_stage_derivative_provider.hpp \
+  cxx23/include/ipopt/cxx23/stage_structured_candidate_backend.hpp \
+  cxx23/include/ipopt/cxx23/stage_structured_nlp.hpp \
+  cxx23/tests/block_tridiagonal_solver_test.cpp \
+  cxx23/tests/bordered_block_tridiagonal_solver_test.cpp \
+  cxx23/tests/direct_preconditioner_test.cpp \
+  cxx23/tests/equality_stage_kkt_assembler_test.cpp \
+  cxx23/tests/fgmres_test.cpp \
+  cxx23/tests/any_nlp_problem_test.cpp \
+  cxx23/tests/legacy_algorithm_canary_test.cpp \
+  cxx23/tests/legacy_aug_system_backend_test.cpp \
+  cxx23/tests/legacy_ipopt_bridge_test.cpp \
+  cxx23/tests/legacy_primal_dual_stage_canary_test.cpp \
+  cxx23/tests/legacy_coordinate_adapter_test.cpp \
+  cxx23/tests/primal_dual_stage_kkt_assembler_test.cpp \
+  cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp \
+  cxx23/tests/stage_structured_candidate_backend_test.cpp \
+  cxx23/tests/stage_structured_nlp_test.cpp
+
+.PHONY: test benchmark doc javadoc astyle cppcheck cppcheck-config
 
 test: all
 	cd test; $(MAKE) test
+
+if BUILD_BENCHMARKS
+benchmark: all
+	cd benchmark; $(MAKE) benchmark
+else
+benchmark:
+	@echo "Benchmarks are disabled; configure with --enable-benchmarks." >&2
+	@exit 1
+endif
 
 doc :
 	cd doc && doxygen

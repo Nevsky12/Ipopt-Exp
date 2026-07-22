@@ -128,6 +128,8 @@ public:
 
    /** Create a solver that can be used to solve a
     *  primal-dual system.
+    *  The default builder calls this for the main algorithm and, with a
+    *  prefix beginning in "resto.", for the restoration algorithm.
     *  Dependencies:
     *     -> GetAugSystemSolver()
     *         -> AugSystemSolverFactory()
@@ -143,8 +145,9 @@ public:
 
    /** Get the primal-dual system solver for this algorithm. This
     *  method will call the PDSystemSolverFactory exactly once (the
-    *  first time it is used), and store its instance on PDSolver_
-    *  for use in subsequent calls.
+    *  first time it is used for the main algorithm), and store its instance
+    *  on PDSolver_ for use in subsequent calls. Restoration construction may
+    *  call the factory separately with its "resto." prefix.
     */
    SmartPtr<PDSystemSolver> GetPDSystemSolver(
       const Journalist&  jnlst,

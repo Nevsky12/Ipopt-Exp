@@ -61,6 +61,17 @@ public:
       bool                  improve_solution = false
    );
 
+   /** Access the exact augmented-system solver owned by this instance.
+    *
+    * This nonvirtual accessor lets external AlgorithmBuilder decorators retain
+    * the same solver and its matrix-tag cache without changing the class
+    * layout or adding a virtual ABI slot.
+    */
+   AugSystemSolver& AugmentedSystemSolver() const
+   {
+      return *augSysSolver_;
+   }
+
    /** Methods for IpoptType */
    ///@{
    static void RegisterOptions(

@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "date": "2026-07-22",
+  "scope": "synthetic symmetric variable-stage block-tridiagonal kernel; not an end-to-end Ipopt or CUTEst result",
+  "build": {
+    "compiler": "g++ 13.3.0",
+    "configuration": "Release",
+    "flags": "-O3 -DNDEBUG",
+    "cpu": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+    "affinity": "taskset -c 4",
+    "os": "Linux 6.17.0-40-generic x86_64"
+  },
+  "protocol": {
+    "outer_runs": 5,
+    "reported_statistic": "median of the five outer-run per-operation measurements",
+    "right_hand_sides": 8,
+    "matrix_construction": "A = L diag(S_k) L^T with deterministic indefinite diagonal Schur blocks",
+    "rhs_layout": "unknown-major contiguous RHS",
+    "timing_unit": "microseconds per operation"
+  },
+  "median": [
+    {"mode":"certified","stages":16,"block_size":5,"dimension":80,"factor_us":7.689691406,"factor_us_per_stage":0.480605713,"sequential_rhs_us":6.759677734,"fused_rhs_us":4.490028809,"fused_speedup":1.508674904,"checksum":1028.64238},
+    {"mode":"numeric","stages":16,"block_size":5,"dimension":80,"factor_us":3.96734375,"factor_us_per_stage":0.247958984,"sequential_rhs_us":4.690125488,"fused_rhs_us":3.702471191,"fused_speedup":1.275076352,"checksum":1028.64238},
+    {"mode":"certified","stages":32,"block_size":5,"dimension":160,"factor_us":15.38125781,"factor_us_per_stage":0.480664307,"sequential_rhs_us":13.35136426,"fused_rhs_us":9.081538086,"fused_speedup":1.47016553,"checksum":765.1397288},
+    {"mode":"numeric","stages":32,"block_size":5,"dimension":160,"factor_us":7.93528125,"factor_us_per_stage":0.247977539,"sequential_rhs_us":9.233691406,"fused_rhs_us":7.40002832,"fused_speedup":1.251964243,"checksum":765.1397288},
+    {"mode":"certified","stages":64,"block_size":5,"dimension":320,"factor_us":31.16696875,"factor_us_per_stage":0.486983887,"sequential_rhs_us":26.77660742,"fused_rhs_us":18.24325195,"fused_speedup":1.470617341,"checksum":-1540.342066},
+    {"mode":"numeric","stages":64,"block_size":5,"dimension":320,"factor_us":16.38271875,"factor_us_per_stage":0.25597998,"sequential_rhs_us":18.5060293,"fused_rhs_us":14.7865332,"fused_speedup":1.254089585,"checksum":-1540.342066},
+    {"mode":"certified","stages":128,"block_size":5,"dimension":640,"factor_us":60.2481875,"factor_us_per_stage":0.470688965,"sequential_rhs_us":53.38671484,"fused_rhs_us":37.5483125,"fused_speedup":1.421813959,"checksum":-19127.19797},
+    {"mode":"numeric","stages":128,"block_size":5,"dimension":640,"factor_us":32.58428125,"factor_us_per_stage":0.254564697,"sequential_rhs_us":37.11301172,"fused_rhs_us":30.24687891,"fused_speedup":1.224264229,"checksum":-19127.19797},
+    {"mode":"certified","stages":256,"block_size":5,"dimension":1280,"factor_us":124.7875625,"factor_us_per_stage":0.487451416,"sequential_rhs_us":107.5834609,"fused_rhs_us":74.58342969,"fused_speedup":1.455021975,"checksum":-21234.31946},
+    {"mode":"numeric","stages":256,"block_size":5,"dimension":1280,"factor_us":65.3548125,"factor_us_per_stage":0.255292236,"sequential_rhs_us":75.48338281,"fused_rhs_us":60.8115,"fused_speedup":1.235089684,"checksum":-21234.31946},
+    {"mode":"certified","stages":16,"block_size":8,"dimension":128,"factor_us":22.1205,"factor_us_per_stage":1.38253125,"sequential_rhs_us":14.63695312,"fused_rhs_us":10.52211475,"fused_speedup":1.399595153,"checksum":1308.423101},
+    {"mode":"numeric","stages":16,"block_size":8,"dimension":128,"factor_us":12.25692187,"factor_us_per_stage":0.766057617,"sequential_rhs_us":10.02236523,"fused_rhs_us":8.378244629,"fused_speedup":1.196236882,"checksum":1308.423101},
+    {"mode":"certified","stages":32,"block_size":8,"dimension":256,"factor_us":44.49999219,"factor_us_per_stage":1.390624756,"sequential_rhs_us":29.21624902,"fused_rhs_us":20.62711328,"fused_speedup":1.428834603,"checksum":-961.1292176},
+    {"mode":"numeric","stages":32,"block_size":8,"dimension":256,"factor_us":24.7969375,"factor_us_per_stage":0.774904297,"sequential_rhs_us":20.16458594,"fused_rhs_us":16.83094336,"fused_speedup":1.197002234,"checksum":-961.1292176},
+    {"mode":"certified","stages":64,"block_size":8,"dimension":512,"factor_us":90.73635938,"factor_us_per_stage":1.417755615,"sequential_rhs_us":58.92960156,"fused_rhs_us":41.61116992,"fused_speedup":1.41832704,"checksum":5530.360383},
+    {"mode":"numeric","stages":64,"block_size":8,"dimension":512,"factor_us":49.3006875,"factor_us_per_stage":0.770323242,"sequential_rhs_us":40.97760938,"fused_rhs_us":33.92598828,"fused_speedup":1.206869958,"checksum":5530.360383},
+    {"mode":"certified","stages":128,"block_size":8,"dimension":1024,"factor_us":183.6981563,"factor_us_per_stage":1.435141846,"sequential_rhs_us":118.0597656,"fused_rhs_us":83.83582813,"fused_speedup":1.41865913,"checksum":-335.901563},
+    {"mode":"numeric","stages":128,"block_size":8,"dimension":1024,"factor_us":98.51484375,"factor_us_per_stage":0.769647217,"sequential_rhs_us":81.83634766,"fused_rhs_us":68.65374219,"fused_speedup":1.193187558,"checksum":-335.901563},
+    {"mode":"certified","stages":256,"block_size":8,"dimension":2048,"factor_us":364.619375,"factor_us_per_stage":1.424294434,"sequential_rhs_us":237.7246016,"fused_rhs_us":169.2507656,"fused_speedup":1.413720746,"checksum":11729.83203},
+    {"mode":"numeric","stages":256,"block_size":8,"dimension":2048,"factor_us":196.4965625,"factor_us_per_stage":0.767564697,"sequential_rhs_us":165.0717031,"fused_rhs_us":139.3654141,"fused_speedup":1.181638001,"checksum":11729.83203}
+  ],
+  "observations": {
+    "numeric_factorization_scaling": {
+      "block_5_us_per_stage": "0.24796 to 0.25598",
+      "block_8_us_per_stage": "0.76606 to 0.77490"
+    },
+    "certified_over_numeric_factor_speedup": {
+      "block_5": "1.849x to 1.939x",
+      "block_8": "1.795x to 1.865x"
+    },
+    "correctness": "numeric and certified modes produced the same deterministic checksums; fused and sequential solutions agreed within 1e-11 in every run",
+    "safety_boundary": "numeric mode always reports inexact inertia; StageStructuredCandidateBackend accepts it only with a separately validated exact full-KKT inertia certificate and residual checks",
+    "limitations": [
+      "The blocks are synthetic and already ordered by stage.",
+      "The factorization is block LDL, not FATROP's null-space Riccati recursion.",
+      "No derivative assembly, Ipopt globalization, restoration, or CUTEst wall time is included.",
+      "The synthetic benchmark checks solve agreement, not an independent inertia theorem; that acceptance path is covered by unit and live DTOC3 tests."
+    ]
+  }
+}

@@ -1,0 +1,557 @@
+// Copyright (C) 2026 Ipopt contributors.
+// All Rights Reserved.
+// This file is distributed under the Eclipse Public License.
+
+#ifndef IPOPT_CXX23_BORDERED_STAGE_STRUCTURED_CANDIDATE_BACKEND_HPP
+#define IPOPT_CXX23_BORDERED_STAGE_STRUCTURED_CANDIDATE_BACKEND_HPP
+
+#include <ipopt/cxx23/bordered_block_tridiagonal_solver.hpp>
+#include <ipopt/cxx23/stage_structured_candidate_backend.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <concepts>
+#include <limits>
+#include <optional>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace Ipopt::Cxx23
+{
+/** Static topology for a reduced stage chain plus a small dense border. */
+struct BorderedStageStructuredLayout
+{
+   std::vector<Index> block_sizes;
+   Index border_dimension = 0;
+   Index full_direction_dimension = 0;
+   StructureFingerprint kkt_fingerprint{0, 0};
+   /** Inertia target after exact complementarity condensation. */
+   Index inertia_dimension = 0;
+};
+
+/** Maps one full KKT request to [A B;B^T C] and reconstructs its direction. */
+template <class Assembler>
+concept BorderedStageStructuredAssembler = requires(
+   Assembler&                         assembler,
+   const Assembler&                   const_assembler,
+   CandidateFirstSolveRequest         request,
+   PrimalDualRegularization           regularization,
+   std::span<Number>                  diagonal,
+   std::span<Number>                  lower,
+   std::span<Number>                  border,
+   std::span<Number>                  border_diagonal,
+   std::span<Number>                  rhs,
+   std::span<const Number>            structured_solution,
+   std::span<Number>                  full_direction
+)
+{
+   { const_assembler.bordered_stage_structured_layout() }
+      -> std::same_as<BorderedStageStructuredLayout>;
+   {
+      assembler.assemble_bordered_stage_system(
+         request,
+         regularization,
+         diagonal,
+         lower,
+         border,
+         border_diagonal,
+         rhs)
+   } -> std::same_as<EvaluationValue<StageStructuredAssemblyReport>>;
+   {
+      assembler.reconstruct_bordered_stage_direction(
+         request, regularization, structured_solution, full_direction)
+   } -> std::same_as<EvaluationValue<StageStructuredWork>>;
+};
+
+struct BorderedStageStructuredCandidateOptions
+{
+   BorderedBlockTridiagonalOptions factorization;
+   BlockRefinementOptions refinement;
+   Index maximum_factorization_attempts = 8;
+   Number initial_primal_regularization = 1e-8;
+   Number initial_dual_regularization = 1e-8;
+   Number regularization_growth = 10.;
+   Number maximum_regularization = 1e16;
+   /** Start a new numeric revision at the last fully accepted perturbation. */
+   bool reuse_accepted_regularization = false;
+};
+
+/** Candidate-first backend for an explicitly bordered stage KKT.
+ *
+ * The arrowhead kernel never claims exact inertia for a floating-point Schur
+ * complement. Acceptance therefore requires the assembler to provide an
+ * independent exact certificate for the complete reduced KKT. If the proof is
+ * unavailable at the current regularization, both regularizations grow and
+ * assembly is retried. The numerical factor and original-arrowhead residual
+ * gate remain mandatory even when the theorem-level certificate is present.
+ */
+template <BorderedStageStructuredAssembler Assembler>
+class BorderedStageStructuredCandidateBackend
+{
+public:
+   explicit BorderedStageStructuredCandidateBackend(
+      Assembler                                 assembler,
+      BorderedStageStructuredCandidateOptions  options = {}
+   )
+      : assembler_(std::move(assembler)),
+        layout_(assembler_.bordered_stage_structured_layout()),
+        options_(options),
+        solver_(
+           layout_.block_sizes,
+           layout_.border_dimension,
+           options_.factorization),
+        diagonal_(solver_.storage().diagonal_values),
+        lower_(solver_.storage().lower_values),
+        border_(solver_.storage().border_values),
+        border_diagonal_(solver_.storage().border_diagonal_values),
+        structured_rhs_(solver_.storage().dimension),
+        structured_solution_(solver_.storage().dimension),
+        full_direction_(layout_.full_direction_dimension)
+   {
+      configuration_error_ = ValidateConfiguration();
+   }
+
+   EvaluationValue<CandidateFirstSolveResult> solve(
+      CandidateFirstSolveRequest request
+   )
+   {
+      if( !configuration_error_.empty() )
+      {
+         return Failure(
+            EvaluationErrorCode::invalid_layout, configuration_error_);
+      }
+      if constexpr( requires {
+         {
+            assembler_.prepare_reusable_bordered_stage_storage(
+               diagonal_, lower_, border_, border_diagonal_)
+         } -> std::same_as<EvaluationResult>;
+      } )
+      {
+         if( EvaluationResult prepared =
+                assembler_.prepare_reusable_bordered_stage_storage(
+                   diagonal_, lower_, border_, border_diagonal_);
+             !prepared )
+         {
+            return std::unexpected(prepared.error());
+         }
+      }
+      if( request.rhs.size() != layout_.full_direction_dimension ||
+          request.kkt.flat_dimension() != layout_.full_direction_dimension )
+      {
+         return Failure(
+            EvaluationErrorCode::dimension_mismatch,
+            "bordered stage backend full direction dimension does not match the request");
+      }
+      if( request.required_negative_eigenvalues > layout_.inertia_dimension )
+      {
+         return Failure(
+            EvaluationErrorCode::invalid_layout,
+            "requested negative-eigenvalue count exceeds the bordered inertia dimension");
+      }
+      if( EvaluationResult state = request.kkt.validate_state(request.state); !state )
+      {
+         return std::unexpected(state.error());
+      }
+      StructureFingerprintResult fingerprint = request.kkt.structure_fingerprint();
+      if( !fingerprint )
+      {
+         return std::unexpected(fingerprint.error());
+      }
+      if( *fingerprint != layout_.kkt_fingerprint )
+      {
+         return Failure(
+            EvaluationErrorCode::structure_mismatch,
+            "bordered stage assembler does not match the requested KKT structure");
+      }
+      if( !ValidRegularization(request.state.regularization) )
+      {
+         return Failure(
+            EvaluationErrorCode::invalid_layout,
+            "bordered candidate regularization must be finite and nonnegative");
+      }
+
+      PrimalDualRegularization regularization = request.state.regularization;
+      if( options_.reuse_accepted_regularization &&
+          last_accepted_regularization_ )
+      {
+         regularization.x = std::max(
+            regularization.x, last_accepted_regularization_->x);
+         regularization.s = std::max(
+            regularization.s, last_accepted_regularization_->s);
+         regularization.c = std::max(
+            regularization.c, last_accepted_regularization_->c);
+         regularization.d = std::max(
+            regularization.d, last_accepted_regularization_->d);
+      }
+      CandidateFirstWorkStatistics work;
+      std::string last_failure =
+         "bordered stage factorization attempts were exhausted";
+      for( Index attempt = 0;
+           attempt < options_.maximum_factorization_attempts;
+           ++attempt )
+      {
+         EvaluationValue<StageStructuredAssemblyReport> assembled =
+            assembler_.assemble_bordered_stage_system(
+               request,
+               regularization,
+               diagonal_,
+               lower_,
+               border_,
+               border_diagonal_,
+               structured_rhs_);
+         if( !assembled )
+         {
+            return std::unexpected(assembled.error());
+         }
+         AddWork(work, assembled->work);
+
+         if( !assembled->independent_full_inertia )
+         {
+            last_failure =
+               "bordered numeric Schur factor requires an independent exact inertia proof";
+            if( !PrepareRetry(
+                   regularization,
+                   RetryTargetForHint(assembled->inertia_retry_hint),
+                   work) )
+            {
+               break;
+            }
+            continue;
+         }
+         EvaluationValue<CertifiedInertia> full_inertia =
+            ValidateIndependentInertia(
+               *assembled->independent_full_inertia,
+               layout_.inertia_dimension);
+         if( !full_inertia )
+         {
+            return std::unexpected(full_inertia.error());
+         }
+         if( full_inertia->negative_eigenvalues !=
+             request.required_negative_eigenvalues )
+         {
+            const RetryTarget target =
+               full_inertia->negative_eigenvalues >
+                  request.required_negative_eigenvalues
+               ? RetryTarget::primal
+               : RetryTarget::dual;
+            last_failure = "bordered stage certificate has " +
+               std::to_string(full_inertia->negative_eigenvalues) +
+               " negative eigenvalues, expected " +
+               std::to_string(request.required_negative_eigenvalues);
+            if( !PrepareRetry(regularization, target, work) )
+            {
+               break;
+            }
+            continue;
+         }
+
+         EvaluationValue<BorderedBlockTridiagonalFactorizationReport> factorized =
+            solver_.factorize(diagonal_, lower_, border_, border_diagonal_);
+         SaturatingAdd(work.factorizations, 1);
+         if( !factorized )
+         {
+            last_failure = factorized.error().message;
+            if( factorized.error().code != EvaluationErrorCode::model_failure )
+            {
+               return std::unexpected(factorized.error());
+            }
+            if( !PrepareRetry(regularization, RetryTarget::both, work) )
+            {
+               break;
+            }
+            continue;
+         }
+
+         const BorderedBlockTridiagonalStatistics before = solver_.statistics();
+         EvaluationValue<BlockRefinementReport> refined =
+            solver_.solve_refined_rhs(
+               structured_rhs_, structured_solution_, options_.refinement);
+         const BorderedBlockTridiagonalStatistics after = solver_.statistics();
+         SaturatingAdd(
+            work.backsolves,
+            after.solved_right_hand_sides - before.solved_right_hand_sides);
+         SaturatingAdd(
+            work.refinement_steps,
+            after.refinement_steps - before.refinement_steps);
+         SaturatingAdd(
+            work.kkt_applications,
+            after.matrix_applications - before.matrix_applications);
+         if( !refined )
+         {
+            last_failure = refined.error().message;
+            if( !PrepareRetry(regularization, RetryTarget::both, work) )
+            {
+               break;
+            }
+            continue;
+         }
+         if( refined->status != BlockRefinementStatus::converged )
+         {
+            last_failure = refined->status ==
+                  BlockRefinementStatus::residual_increase
+               ? "bordered stage iterative-refinement residual did not decrease"
+               : "bordered stage iterative refinement reached its iteration limit";
+            if( !PrepareRetry(regularization, RetryTarget::both, work) )
+            {
+               break;
+            }
+            continue;
+         }
+
+         std::ranges::fill(full_direction_, 0.);
+         EvaluationValue<StageStructuredWork> reconstructed =
+            assembler_.reconstruct_bordered_stage_direction(
+               request,
+               regularization,
+               structured_solution_,
+               full_direction_);
+         if( !reconstructed )
+         {
+            return std::unexpected(reconstructed.error());
+         }
+         AddWork(work, *reconstructed);
+         if( !std::ranges::all_of(
+                full_direction_, [](Number value) { return std::isfinite(value); }) )
+         {
+            return Failure(
+               EvaluationErrorCode::nonfinite_output,
+               "bordered stage reconstruction produced a nonfinite direction");
+         }
+
+         CandidateFirstSolveResult result;
+         result.direction = full_direction_;
+         result.accepted_regularization = regularization;
+         result.inertia = {
+            CandidateFirstInertiaCertainty::exact,
+            full_inertia->negative_eigenvalues
+         };
+         result.work = work;
+         result.converged = true;
+         if( options_.reuse_accepted_regularization )
+         {
+            last_accepted_regularization_ = regularization;
+         }
+         return result;
+      }
+      return Failure(EvaluationErrorCode::model_failure, std::move(last_failure));
+   }
+
+   const BorderedStageStructuredLayout& layout() const noexcept
+   {
+      return layout_;
+   }
+
+private:
+   enum class RetryTarget
+   {
+      primal,
+      dual,
+      both
+   };
+
+   std::string ValidateConfiguration() const
+   {
+      if( !solver_.configured() )
+      {
+         return "bordered stage block topology is invalid";
+      }
+      const BorderedBlockTridiagonalStorage storage = solver_.storage();
+      if( solver_.block_sizes() != layout_.block_sizes ||
+          storage.border_dimension != layout_.border_dimension ||
+          diagonal_.size() != storage.diagonal_values ||
+          lower_.size() != storage.lower_values ||
+          border_.size() != storage.border_values ||
+          border_diagonal_.size() != storage.border_diagonal_values ||
+          structured_rhs_.size() != storage.dimension ||
+          structured_solution_.size() != storage.dimension ||
+          full_direction_.size() != layout_.full_direction_dimension )
+      {
+         return "bordered prepared workspace does not match the assembler topology";
+      }
+      if( layout_.border_dimension == 0 ||
+          layout_.full_direction_dimension == 0 ||
+          layout_.inertia_dimension == 0 ||
+          storage.dimension > layout_.inertia_dimension ||
+          layout_.inertia_dimension > layout_.full_direction_dimension )
+      {
+         return "bordered reduced/inertia/full dimensions are inconsistent";
+      }
+      if( options_.maximum_factorization_attempts == 0 ||
+          !std::isfinite(options_.initial_primal_regularization) ||
+          !(options_.initial_primal_regularization > 0.) ||
+          !std::isfinite(options_.initial_dual_regularization) ||
+          !(options_.initial_dual_regularization > 0.) ||
+          !std::isfinite(options_.regularization_growth) ||
+          !(options_.regularization_growth > 1.) ||
+          !std::isfinite(options_.maximum_regularization) ||
+          options_.maximum_regularization <
+             options_.initial_primal_regularization ||
+          options_.maximum_regularization <
+             options_.initial_dual_regularization ||
+          !std::isfinite(options_.refinement.relative_tolerance) ||
+          options_.refinement.relative_tolerance < 0. )
+      {
+         return "bordered retry/refinement options are invalid";
+      }
+      return {};
+   }
+
+   static bool ValidRegularization(PrimalDualRegularization value) noexcept
+   {
+      return std::isfinite(value.x) && value.x >= 0. &&
+         std::isfinite(value.s) && value.s >= 0. &&
+         std::isfinite(value.c) && value.c >= 0. &&
+         std::isfinite(value.d) && value.d >= 0.;
+   }
+
+   static EvaluationValue<CandidateFirstSolveResult> Failure(
+      EvaluationErrorCode code,
+      std::string         message
+   )
+   {
+      return std::unexpected(EvaluationError{code, std::move(message)});
+   }
+
+   static void AddWork(
+      CandidateFirstWorkStatistics& target,
+      const StageStructuredWork&    source
+   ) noexcept
+   {
+      SaturatingAdd(target.factorizations, source.factorizations);
+      SaturatingAdd(target.backsolves, source.backsolves);
+      SaturatingAdd(target.kkt_applications, source.kkt_applications);
+      SaturatingAdd(
+         target.derivative_product_requests,
+         source.derivative_product_requests);
+      SaturatingAdd(target.refinement_steps, source.refinement_steps);
+      SaturatingAdd(target.quality_improvements, source.quality_improvements);
+   }
+
+   static void SaturatingAdd(Index& target, Index increment) noexcept
+   {
+      target = increment > std::numeric_limits<Index>::max() - target
+         ? std::numeric_limits<Index>::max()
+         : target + increment;
+   }
+
+   static bool CheckedAdd(Index left, Index right, Index& result) noexcept
+   {
+      if( right > std::numeric_limits<Index>::max() - left )
+      {
+         return false;
+      }
+      result = left + right;
+      return true;
+   }
+
+   static EvaluationValue<CertifiedInertia> ValidateIndependentInertia(
+      CertifiedInertia inertia,
+      Index            full_dimension
+   )
+   {
+      Index dimension = 0;
+      if( !inertia.exact || inertia.zero_eigenvalues != 0 ||
+          !CheckedAdd(
+             inertia.positive_eigenvalues,
+             inertia.negative_eigenvalues,
+             dimension) ||
+          dimension != full_dimension )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            "bordered independent inertia proof does not cover the configured target"
+         });
+      }
+      return inertia;
+   }
+
+   static RetryTarget RetryTargetForHint(
+      StageStructuredInertiaRetryHint hint
+   ) noexcept
+   {
+      switch( hint )
+      {
+         case StageStructuredInertiaRetryHint::primal:
+            return RetryTarget::primal;
+         case StageStructuredInertiaRetryHint::dual:
+            return RetryTarget::dual;
+         case StageStructuredInertiaRetryHint::both:
+            return RetryTarget::both;
+      }
+      return RetryTarget::both;
+   }
+
+   bool PrepareRetry(
+      PrimalDualRegularization&       regularization,
+      RetryTarget                    target,
+      CandidateFirstWorkStatistics&  work
+   ) const noexcept
+   {
+      bool changed = false;
+      if( target == RetryTarget::primal || target == RetryTarget::both )
+      {
+         changed = IncreaseRegularization(
+            regularization.x, options_.initial_primal_regularization) || changed;
+         changed = IncreaseRegularization(
+            regularization.s, options_.initial_primal_regularization) || changed;
+      }
+      if( target == RetryTarget::dual || target == RetryTarget::both )
+      {
+         changed = IncreaseRegularization(
+            regularization.c, options_.initial_dual_regularization) || changed;
+         changed = IncreaseRegularization(
+            regularization.d, options_.initial_dual_regularization) || changed;
+      }
+      if( changed )
+      {
+         SaturatingAdd(work.quality_improvements, 1);
+      }
+      return changed;
+   }
+
+   bool IncreaseRegularization(Number& value, Number initial) const noexcept
+   {
+      const Number previous = value;
+      if( value < initial )
+      {
+         value = initial;
+      }
+      else if( value < options_.maximum_regularization )
+      {
+         value = std::min(
+            options_.maximum_regularization,
+            value * options_.regularization_growth);
+      }
+      return value > previous;
+   }
+
+   Assembler assembler_;
+   BorderedStageStructuredLayout layout_;
+   BorderedStageStructuredCandidateOptions options_;
+   SymmetricBorderedBlockTridiagonalSolver solver_;
+   std::vector<Number> diagonal_;
+   std::vector<Number> lower_;
+   std::vector<Number> border_;
+   std::vector<Number> border_diagonal_;
+   std::vector<Number> structured_rhs_;
+   std::vector<Number> structured_solution_;
+   std::vector<Number> full_direction_;
+   std::string configuration_error_;
+   std::optional<PrimalDualRegularization> last_accepted_regularization_;
+};
+
+template <BorderedStageStructuredAssembler Assembler>
+SharedCandidateFirstBackend MakeBorderedStageStructuredCandidateBackend(
+   Assembler                                 assembler,
+   BorderedStageStructuredCandidateOptions  options = {}
+)
+{
+   return MakeCandidateFirstBackend(
+      BorderedStageStructuredCandidateBackend<Assembler>(
+         std::move(assembler), options));
+}
+} // namespace Ipopt::Cxx23
+
+#endif

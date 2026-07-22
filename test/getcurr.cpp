@@ -14,6 +14,7 @@
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 using namespace Ipopt;
 
@@ -24,6 +25,20 @@ using namespace Ipopt;
 #endif
 #define ASSERTEQ(val1, val2) \
    do if( std::abs((val1)-(val2)) > TESTTOL*std::max(1.0,std::max((double)std::abs(val1),(double)std::abs(val2))) ) \
+   { \
+      fflush(stdout); \
+      fprintf(stderr, "Line %d: Wrong %s = %.12g, expected %s = %.12g\n", __LINE__, #val1, val1, #val2, val2); \
+      abort(); \
+   } while (false)
+
+// The Lagrangian-gradient checks below can add terms that are many orders of
+// magnitude larger than their result.  In single precision, a tolerance based
+// only on the cancelled result produces false failures.  Account for the
+// roundoff scale of the sum while retaining the existing result-relative test.
+#define ASSERTSUMEQ(val1, val2, sumscale) \
+   do if( std::abs((val1)-(val2)) > std::max( \
+      TESTTOL*std::max(1.0,std::max((double)std::abs(val1),(double)std::abs(val2))), \
+      8.0*std::numeric_limits<Number>::epsilon()*(double)(sumscale)) ) \
    { \
       fflush(stdout); \
       fprintf(stderr, "Line %d: Wrong %s = %.12g, expected %s = %.12g\n", __LINE__, #val1, val1, #val2, val2); \
@@ -455,9 +470,21 @@ public:
       ASSERTEQ(compl_x_U[2], 0.0);
 
       // check gradient on Lagrangian
-      ASSERTEQ(grad_lag_x[0], 1.0 + lambda[0] * 2 * x[0] + lambda[1] * 2 * x[0] - z_L[0]);
-      ASSERTEQ(grad_lag_x[1], 1.0 + lambda[0] * 2 * x[1] - z_L[1] + z_U[1]);
-      ASSERTEQ(grad_lag_x[2], 1.0 + lambda[0] * 2 * x[2] - lambda[1] * 2 * x[2]);
+      ASSERTSUMEQ(
+         grad_lag_x[0],
+         1.0 + lambda[0] * 2 * x[0] + lambda[1] * 2 * x[0] - z_L[0],
+         1.0 + std::abs(lambda[0] * 2 * x[0]) +
+            std::abs(lambda[1] * 2 * x[0]) + std::abs(z_L[0]));
+      ASSERTSUMEQ(
+         grad_lag_x[1],
+         1.0 + lambda[0] * 2 * x[1] - z_L[1] + z_U[1],
+         1.0 + std::abs(lambda[0] * 2 * x[1]) +
+            std::abs(z_L[1]) + std::abs(z_U[1]));
+      ASSERTSUMEQ(
+         grad_lag_x[2],
+         1.0 + lambda[0] * 2 * x[2] - lambda[1] * 2 * x[2],
+         1.0 + std::abs(lambda[0] * 2 * x[2]) +
+            std::abs(lambda[1] * 2 * x[2]));
 
       // check constraint violation
       ASSERTEQ(constraint_violation[0], std::max(0.0, std::max(1.0 - g[0], g[0] - 2.0)));
@@ -557,9 +584,30 @@ public:
       ASSERTEQ(s_compl_x_L[2], 0.0);
       ASSERTEQ(s_compl_x_U[2], 0.0);
 
-      ASSERTEQ(s_grad_lag_x[0], (1.0 * obj_scaling + s_lambda[0] * 2 * x[0] * g_scaling[0] + s_lambda[1] * 2 * x[0] * g_scaling[1]) / x_scaling[0] - s_z_L[0]);
-      ASSERTEQ(s_grad_lag_x[1], (1.0 * obj_scaling + s_lambda[0] * 2 * x[1] * g_scaling[0]) / x_scaling[1] - s_z_L[1] + s_z_U[1]);
-      ASSERTEQ(s_grad_lag_x[2], (1.0 * obj_scaling + s_lambda[0] * 2 * x[2] * g_scaling[0] - s_lambda[1] * 2 * x[2] * g_scaling[1]) / x_scaling[2]);
+      ASSERTSUMEQ(
+         s_grad_lag_x[0],
+         (1.0 * obj_scaling + s_lambda[0] * 2 * x[0] * g_scaling[0] +
+            s_lambda[1] * 2 * x[0] * g_scaling[1]) / x_scaling[0] - s_z_L[0],
+         (std::abs(obj_scaling) +
+            std::abs(s_lambda[0] * 2 * x[0] * g_scaling[0]) +
+            std::abs(s_lambda[1] * 2 * x[0] * g_scaling[1])) /
+            std::abs(x_scaling[0]) + std::abs(s_z_L[0]));
+      ASSERTSUMEQ(
+         s_grad_lag_x[1],
+         (1.0 * obj_scaling + s_lambda[0] * 2 * x[1] * g_scaling[0]) /
+            x_scaling[1] - s_z_L[1] + s_z_U[1],
+         (std::abs(obj_scaling) +
+            std::abs(s_lambda[0] * 2 * x[1] * g_scaling[0])) /
+            std::abs(x_scaling[1]) + std::abs(s_z_L[1]) +
+            std::abs(s_z_U[1]));
+      ASSERTSUMEQ(
+         s_grad_lag_x[2],
+         (1.0 * obj_scaling + s_lambda[0] * 2 * x[2] * g_scaling[0] -
+            s_lambda[1] * 2 * x[2] * g_scaling[1]) / x_scaling[2],
+         (std::abs(obj_scaling) +
+            std::abs(s_lambda[0] * 2 * x[2] * g_scaling[0]) +
+            std::abs(s_lambda[1] * 2 * x[2] * g_scaling[1])) /
+            std::abs(x_scaling[2]));
 
       // check constraint violation
       ASSERTEQ(s_constraint_violation[0], std::max(0.0, std::max(1.0 - g[0], g[0] - 2.0)*g_scaling[0]));

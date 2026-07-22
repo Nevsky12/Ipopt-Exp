@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "name": "cxx23_fgmres_workspace_reuse",
+  "metric": "nanoseconds_per_solve",
+  "compiler": "GNU 13.3.0",
+  "build_type": "Release",
+  "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+  "cpu_affinity": 4,
+  "dimension": 8,
+  "restart": 8,
+  "maximum_iterations": 8,
+  "solves": 20000,
+  "warmup": 100,
+  "repetitions": 7,
+  "krylov_iterations_per_repetition": 160000,
+  "reused_median": 2937.66125,
+  "reconstructed_median": 3126.25,
+  "saved_ns": 188.58875,
+  "speedup": 1.0641969015317883,
+  "reused_samples": [
+    2911.93455,
+    2922.21965,
+    2923.89845,
+    2937.66125,
+    2952.8001,
+    3042.05175,
+    3064.8448
+  ],
+  "reconstructed_samples": [
+    3098.2418,
+    3116.06015,
+    3121.70925,
+    3126.25,
+    3132.67305,
+    3279.4917,
+    3291.3093
+  ]
+}

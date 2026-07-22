@@ -1,0 +1,112 @@
+{
+  "benchmarks": [
+    {
+      "callback_evaluations": 140007000,
+      "compiler": "13.3.0",
+      "cplusplus": 202100,
+      "iterations": 20000000,
+      "lower_is_better": true,
+      "median": 10.1094166,
+      "metric": "nanoseconds_per_call",
+      "name": "tnlp_adapter_eval_h_fixed_variable",
+      "repetitions": 7,
+      "samples": [
+        10.08648875,
+        10.0896871,
+        10.09258215,
+        10.1094166,
+        10.11081995,
+        10.12334545,
+        10.18599755
+      ],
+      "schema_version": 1,
+      "warmup": 1000
+    },
+    {
+      "callback_evaluations": 140007000,
+      "compiler": "13.3.0",
+      "cplusplus": 202100,
+      "iterations": 20000000,
+      "lower_is_better": true,
+      "median": 7.91426585,
+      "metric": "nanoseconds_per_call",
+      "name": "tnlp_adapter_eval_grad_f_fixed_variable",
+      "repetitions": 7,
+      "samples": [
+        7.88823435,
+        7.90171835,
+        7.9137869,
+        7.91426585,
+        7.92507065,
+        7.94467255,
+        7.9521743
+      ],
+      "schema_version": 1,
+      "warmup": 1000
+    }
+  ],
+  "commands": [
+    [
+      "/usr/bin/taskset",
+      "-c",
+      "4",
+      "/tmp/ipopt-benchmark-build.UIevkb/benchmark/tnlp_adapter_eval_h_benchmark",
+      "--iterations",
+      "20000000",
+      "--repetitions",
+      "7",
+      "--warmup",
+      "1000"
+    ],
+    [
+      "/usr/bin/taskset",
+      "-c",
+      "4",
+      "/tmp/ipopt-benchmark-build.UIevkb/benchmark/tnlp_adapter_eval_grad_f_benchmark",
+      "--iterations",
+      "20000000",
+      "--repetitions",
+      "7",
+      "--warmup",
+      "1000"
+    ]
+  ],
+  "comparisons": [
+    {
+      "baseline": "/home/nevskys/projects/Ipopt/graphify-out/benchmark-adapter-workspaces-baseline.json",
+      "baseline_median": 10.22549995,
+      "current_median": 10.1094166,
+      "max_regression_percent": 5.0,
+      "passed": true,
+      "ratio": 0.9886476602056019,
+      "regression_percent": -1.1352339794398092
+    },
+    {
+      "baseline": "/home/nevskys/projects/Ipopt/graphify-out/benchmark-adapter-workspaces-baseline.json",
+      "baseline_median": 15.37701795,
+      "current_median": 7.91426585,
+      "max_regression_percent": 5.0,
+      "passed": true,
+      "ratio": 0.5146814470617171,
+      "regression_percent": -48.531855293828286
+    }
+  ],
+  "environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "generated_at": "2026-07-21T20:30:44.918922+00:00",
+  "host": {
+    "cpu": 4,
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+    "platform": "Linux-6.17.0-40-generic-x86_64-with-glibc2.39"
+  },
+  "schema_version": 1,
+  "source": {
+    "commit": "72a29c9aab198afa0dbb940339022a22c415a4eb",
+    "dirty": true,
+    "root": "/home/nevskys/projects/Ipopt"
+  }
+}

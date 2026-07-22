@@ -557,7 +557,7 @@ private:
    Number* full_x_; /** copy of the full x vector (fixed & non-fixed) */
    Number* full_lambda_; /** copy of lambda (yc & yd) */
    Number* full_g_; /** copy of g (c & d) */
-   Number* jac_g_; /** the values for the full jacobian of g */
+   Number* jac_g_; /** full Jacobian values, followed by fixed-variable callback workspace */
    Number* c_rhs_; /** the rhs values of c */
    ///@}
 

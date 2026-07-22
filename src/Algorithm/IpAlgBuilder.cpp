@@ -647,10 +647,11 @@ SmartPtr<PDSystemSolver> AlgorithmBuilder::PDSystemSolverFactory(
    const std::string&    prefix
 )
 {
+   const bool restoration = prefix.compare(0, 6, "resto.") == 0;
    SmartPtr<PDPerturbationHandler> pertHandler;
    std::string lsmethod;
    options.GetStringValue("line_search_method", lsmethod, prefix);
-   if( lsmethod == "cg-penalty" )
+   if( !restoration && lsmethod == "cg-penalty" )
    {
       pertHandler = new CGPerturbationHandler();
    }
@@ -659,7 +660,13 @@ SmartPtr<PDSystemSolver> AlgorithmBuilder::PDSystemSolverFactory(
       pertHandler = new PDPerturbationHandler();
    }
 
-   SmartPtr<PDSystemSolver> PDSolver = new PDFullSpaceSolver(*GetAugSystemSolver(jnlst, options, prefix), *pertHandler);
+   SmartPtr<AugSystemSolver> aug_solver = GetAugSystemSolver(jnlst, options, prefix);
+   if( restoration )
+   {
+      aug_solver = new AugRestoSystemSolver(*aug_solver);
+   }
+   SmartPtr<PDSystemSolver> PDSolver =
+      new PDFullSpaceSolver(*aug_solver, *pertHandler);
    return PDSolver;
 }
 
@@ -878,9 +885,23 @@ SmartPtr<LineSearch> AlgorithmBuilder::BuildLineSearch(
    if( lsmethod == "filter" || lsmethod == "penalty" )
    {
       // Solver for the restoration phase
-      SmartPtr<AugSystemSolver> resto_AugSolver = new AugRestoSystemSolver(*GetAugSystemSolver(jnlst, options, prefix));
-      SmartPtr<PDPerturbationHandler> resto_pertHandler = new PDPerturbationHandler();
-      SmartPtr<PDSystemSolver> resto_PDSolver = new PDFullSpaceSolver(*resto_AugSolver, *resto_pertHandler);
+      SmartPtr<PDSystemSolver> resto_PDSolver =
+         PDSystemSolverFactory(jnlst, options, "resto." + prefix);
+      SmartPtr<AugSystemSolver> resto_AugSolver;
+      PDFullSpaceSolver* resto_full_solver =
+         dynamic_cast<PDFullSpaceSolver*>(GetRawPtr(resto_PDSolver));
+      if( resto_full_solver != NULL )
+      {
+         // Keep the original default-builder behavior: the direction and
+         // equality-multiplier paths share one restoration decorator/cache.
+         resto_AugSolver = &resto_full_solver->AugmentedSystemSolver();
+      }
+      else
+      {
+         // A custom PD factory need not expose its augmented solver.
+         resto_AugSolver = new AugRestoSystemSolver(
+            *GetAugSystemSolver(jnlst, options, prefix));
+      }
 
       // Convergence check in the restoration phase
       if( lsmethod == "filter" )

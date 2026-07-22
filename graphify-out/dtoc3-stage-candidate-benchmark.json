@@ -1,0 +1,1243 @@
+{
+  "baseline": {
+    "executable": "/tmp/fatrop-cutest-bench.JNaeIe/research/cutest_ipopt_benchmark",
+    "library_directory": null,
+    "resolved_ipopt": "/usr/local/lib/libipopt.so.3.14.20"
+  },
+  "candidate": {
+    "executable": "/tmp/fatrop-cutest-bench.JNaeIe/research/cutest_ipopt_stage_benchmark",
+    "library_directory": null,
+    "resolved_ipopt": "/usr/local/lib/libipopt.so.3.14.20"
+  },
+  "cases": [
+    {
+      "baseline": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          1.47104550763e-15,
+          1.47104550763e-15,
+          1.47104550763e-15,
+          1.47104550763e-15,
+          1.47104550763e-15,
+          1.47104550763e-15,
+          1.47104550763e-15
+        ],
+        "maximum_ms": 1.067701,
+        "median_ms": 0.980948,
+        "minimum_ms": 0.931743,
+        "objectives": [
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071
+        ],
+        "samples_ms": [
+          1.040552,
+          1.023783,
+          0.952803,
+          1.067701,
+          0.980948,
+          0.931743,
+          0.969268
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "baseline_over_candidate": 1.1214371618933516,
+      "candidate": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16
+        ],
+        "maximum_ms": 0.924736,
+        "median_ms": 0.874724,
+        "minimum_ms": 0.820864,
+        "objectives": [
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071,
+          233.278713071
+        ],
+        "samples_ms": [
+          0.874724,
+          0.820864,
+          0.88501,
+          0.851804,
+          0.847478,
+          0.876854,
+          0.924736
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry": {
+          "assembler_construction_ms": {
+            "median": 0.002736,
+            "samples": [
+              0.003832,
+              0.002321,
+              0.002743,
+              0.002441,
+              0.002746,
+              0.002704,
+              0.002736
+            ]
+          },
+          "assembler_layout_preparation_ms": {
+            "median": 0.004366,
+            "samples": [
+              0.004329,
+              0.004259,
+              0.004444,
+              0.00417,
+              0.004366,
+              0.004393,
+              0.004806
+            ]
+          },
+          "assembly_ms": {
+            "median": 0.005406,
+            "samples": [
+              0.00701,
+              0.004805,
+              0.005421,
+              0.005244,
+              0.005406,
+              0.004952,
+              0.005419
+            ]
+          },
+          "backend_constructions": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "backend_factory_failures": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "backend_ms": {
+            "median": 0.028247,
+            "samples": [
+              0.03386,
+              0.025723,
+              0.029015,
+              0.027278,
+              0.028247,
+              0.027605,
+              0.029823
+            ]
+          },
+          "backsolves": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "blueprint_preparation_ms": {
+            "median": 0.037605,
+            "samples": [
+              0.040556,
+              0.048047,
+              0.037605,
+              0.044772,
+              0.035381,
+              0.033025,
+              0.034737
+            ]
+          },
+          "candidate_accepted": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "candidate_fallbacks": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "candidate_requests": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factorizations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factory_ms": {
+            "median": 0.005245,
+            "samples": [
+              0.006427,
+              0.004123,
+              0.005245,
+              0.004508,
+              0.005463,
+              0.004794,
+              0.00774
+            ]
+          },
+          "hessian_cache_hits": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "hessian_evaluations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "jacobian_cache_hits": {
+            "samples": [
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "jacobian_evaluations": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "provider_construction_ms": {
+            "median": 6.6e-05,
+            "samples": [
+              6.6e-05,
+              5.6e-05,
+              6.3e-05,
+              0.000114,
+              6.1e-05,
+              0.000114,
+              7.7e-05
+            ]
+          },
+          "provider_preparation_ms": {
+            "median": 0.000299,
+            "samples": [
+              0.000295,
+              0.000302,
+              0.000299,
+              0.000258,
+              0.000278,
+              0.00039,
+              0.000301
+            ]
+          },
+          "quality_improvements": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "reconstruction_ms": {
+            "median": 0.000121,
+            "samples": [
+              0.000221,
+              0.000119,
+              0.000121,
+              0.000114,
+              0.000116,
+              0.000124,
+              0.000125
+            ]
+          },
+          "solver_construction_ms": {
+            "median": 0.001535,
+            "samples": [
+              0.001673,
+              0.001158,
+              0.001644,
+              0.001342,
+              0.001618,
+              0.001356,
+              0.001535
+            ]
+          },
+          "stage_derivative_ms": {
+            "median": 0.001221,
+            "samples": [
+              0.001409,
+              0.000948,
+              0.001325,
+              0.001311,
+              0.001128,
+              0.001161,
+              0.001221
+            ]
+          },
+          "validation_kkt_applications": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "workspace_preparation_ms": {
+            "median": 0.016225,
+            "samples": [
+              0.016418,
+              0.016225,
+              0.016728,
+              0.015744,
+              0.015869,
+              0.015768,
+              0.016436
+            ]
+          }
+        }
+      },
+      "candidate_change_percent": -10.828708555397437,
+      "case": "DTOC3_N50",
+      "classification": "QLR2-AN-V-V",
+      "hessian_nonzeros": 147,
+      "jacobian_nonzeros": 343,
+      "m": 98,
+      "n": 149,
+      "problem": "DTOC3"
+    },
+    {
+      "baseline": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          1.75619067899e-15,
+          1.75619067899e-15,
+          1.75619067899e-15,
+          1.75619067899e-15,
+          1.75619067899e-15,
+          1.75619067899e-15,
+          1.75619067899e-15
+        ],
+        "maximum_ms": 26.389917,
+        "median_ms": 25.450778,
+        "minimum_ms": 25.126699,
+        "objectives": [
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035
+        ],
+        "samples_ms": [
+          25.450778,
+          25.550355,
+          26.389917,
+          25.126699,
+          25.574673,
+          25.23911,
+          25.428171
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "baseline_over_candidate": 1.0853525426474007,
+      "candidate": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16,
+          8.881784197e-16
+        ],
+        "maximum_ms": 23.93377,
+        "median_ms": 23.449319,
+        "minimum_ms": 23.303221,
+        "objectives": [
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035,
+          235.262481035
+        ],
+        "samples_ms": [
+          23.93377,
+          23.411814,
+          23.449319,
+          23.303221,
+          23.65505,
+          23.909437,
+          23.42328
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry": {
+          "assembler_construction_ms": {
+            "median": 0.225513,
+            "samples": [
+              0.246708,
+              0.223895,
+              0.225513,
+              0.227673,
+              0.218809,
+              0.266075,
+              0.216799
+            ]
+          },
+          "assembler_layout_preparation_ms": {
+            "median": 0.216671,
+            "samples": [
+              0.251371,
+              0.216671,
+              0.243782,
+              0.2131,
+              0.214871,
+              0.220134,
+              0.212308
+            ]
+          },
+          "assembly_ms": {
+            "median": 0.572044,
+            "samples": [
+              0.586693,
+              0.544285,
+              0.599332,
+              0.572044,
+              0.545787,
+              0.602476,
+              0.54001
+            ]
+          },
+          "backend_constructions": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "backend_factory_failures": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "backend_ms": {
+            "median": 2.523066,
+            "samples": [
+              2.601715,
+              2.438408,
+              2.559495,
+              2.498526,
+              2.459414,
+              2.738218,
+              2.523066
+            ]
+          },
+          "backsolves": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "blueprint_preparation_ms": {
+            "median": 2.802607,
+            "samples": [
+              2.775309,
+              2.759337,
+              2.802607,
+              2.828921,
+              2.723587,
+              2.832053,
+              2.906418
+            ]
+          },
+          "candidate_accepted": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "candidate_fallbacks": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "candidate_requests": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factorizations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factory_ms": {
+            "median": 0.235209,
+            "samples": [
+              0.256338,
+              0.232729,
+              0.235209,
+              0.237209,
+              0.228216,
+              0.275128,
+              0.225187
+            ]
+          },
+          "hessian_cache_hits": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "hessian_evaluations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "jacobian_cache_hits": {
+            "samples": [
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "jacobian_evaluations": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "provider_construction_ms": {
+            "median": 0.000154,
+            "samples": [
+              0.000323,
+              0.000143,
+              0.000146,
+              0.000193,
+              0.000189,
+              0.000146,
+              0.000154
+            ]
+          },
+          "provider_preparation_ms": {
+            "median": 0.008221,
+            "samples": [
+              0.008247,
+              0.008211,
+              0.008585,
+              0.008212,
+              0.008221,
+              0.008532,
+              0.008165
+            ]
+          },
+          "quality_improvements": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "reconstruction_ms": {
+            "median": 0.016387,
+            "samples": [
+              0.016528,
+              0.016544,
+              0.014081,
+              0.015195,
+              0.016387,
+              0.017918,
+              0.015782
+            ]
+          },
+          "solver_construction_ms": {
+            "median": 0.008054,
+            "samples": [
+              0.008133,
+              0.007543,
+              0.008117,
+              0.008111,
+              0.008054,
+              0.007814,
+              0.007211
+            ]
+          },
+          "stage_derivative_ms": {
+            "median": 0.170496,
+            "samples": [
+              0.176782,
+              0.152104,
+              0.175328,
+              0.182653,
+              0.152431,
+              0.170496,
+              0.151354
+            ]
+          },
+          "validation_kkt_applications": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "workspace_preparation_ms": {
+            "median": 1.803618,
+            "samples": [
+              1.803618,
+              1.896862,
+              1.819688,
+              1.761621,
+              1.800559,
+              1.910723,
+              1.767152
+            ]
+          }
+        }
+      },
+      "candidate_change_percent": -7.864038576738208,
+      "case": "DTOC3_N5000",
+      "classification": "QLR2-AN-V-V",
+      "hessian_nonzeros": 14997,
+      "jacobian_nonzeros": 34993,
+      "m": 9998,
+      "n": 14999,
+      "problem": "DTOC3"
+    },
+    {
+      "baseline": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          1.76183530655e-15,
+          1.76183530655e-15,
+          1.76183530655e-15,
+          1.76183530655e-15,
+          1.76183530655e-15,
+          1.76183530655e-15,
+          1.76183530655e-15
+        ],
+        "maximum_ms": 159.37294,
+        "median_ms": 158.003632,
+        "minimum_ms": 156.958749,
+        "objectives": [
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679
+        ],
+        "samples_ms": [
+          157.045276,
+          159.37294,
+          156.958749,
+          158.711743,
+          158.003632,
+          157.709734,
+          158.951134
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "baseline_over_candidate": 1.1005041725562021,
+      "candidate": {
+        "iterations": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "maximum_constraint_violations": [
+          8.88173337502e-16,
+          8.88173337502e-16,
+          8.88173337502e-16,
+          8.88173337502e-16,
+          8.88173337502e-16,
+          8.88173337502e-16,
+          8.88173337502e-16
+        ],
+        "maximum_ms": 144.744529,
+        "median_ms": 143.57386,
+        "minimum_ms": 142.99266,
+        "objectives": [
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679,
+          235.278942679
+        ],
+        "samples_ms": [
+          142.99266,
+          144.043361,
+          143.003615,
+          143.377774,
+          143.57386,
+          143.867144,
+          144.744529
+        ],
+        "statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry": {
+          "assembler_construction_ms": {
+            "median": 1.318085,
+            "samples": [
+              1.297223,
+              1.291906,
+              1.486128,
+              1.337401,
+              1.444934,
+              1.313448,
+              1.318085
+            ]
+          },
+          "assembler_layout_preparation_ms": {
+            "median": 1.342564,
+            "samples": [
+              1.338829,
+              1.342564,
+              1.49318,
+              1.319769,
+              1.345538,
+              1.341919,
+              1.362085
+            ]
+          },
+          "assembly_ms": {
+            "median": 3.999635,
+            "samples": [
+              3.779304,
+              4.178369,
+              3.914146,
+              3.833358,
+              3.999635,
+              4.013314,
+              4.106828
+            ]
+          },
+          "backend_constructions": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "backend_factory_failures": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "backend_ms": {
+            "median": 16.536893,
+            "samples": [
+              16.459652,
+              16.736334,
+              16.393763,
+              16.321602,
+              16.623452,
+              16.885775,
+              16.536893
+            ]
+          },
+          "backsolves": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "blueprint_preparation_ms": {
+            "median": 17.131111,
+            "samples": [
+              17.131111,
+              16.914154,
+              17.089501,
+              16.87957,
+              17.28573,
+              17.582483,
+              17.345516
+            ]
+          },
+          "candidate_accepted": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "candidate_fallbacks": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "candidate_requests": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factorizations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "factory_ms": {
+            "median": 1.353393,
+            "samples": [
+              1.329719,
+              1.324184,
+              1.518911,
+              1.369398,
+              1.490628,
+              1.344632,
+              1.353393
+            ]
+          },
+          "hessian_cache_hits": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "hessian_evaluations": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "jacobian_cache_hits": {
+            "samples": [
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "jacobian_evaluations": {
+            "samples": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "provider_construction_ms": {
+            "median": 0.000147,
+            "samples": [
+              0.000147,
+              0.000169,
+              0.000158,
+              0.000147,
+              0.000237,
+              0.000143,
+              0.000147
+            ]
+          },
+          "provider_preparation_ms": {
+            "median": 0.076617,
+            "samples": [
+              0.071696,
+              0.081624,
+              0.071477,
+              0.076136,
+              0.076617,
+              0.083335,
+              0.084862
+            ]
+          },
+          "quality_improvements": {
+            "samples": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "reconstruction_ms": {
+            "median": 0.137638,
+            "samples": [
+              0.137638,
+              0.137473,
+              0.1353,
+              0.136022,
+              0.139046,
+              0.151888,
+              0.138606
+            ]
+          },
+          "solver_construction_ms": {
+            "median": 0.031039,
+            "samples": [
+              0.031039,
+              0.031011,
+              0.03124,
+              0.030599,
+              0.043893,
+              0.029485,
+              0.033849
+            ]
+          },
+          "stage_derivative_ms": {
+            "median": 1.052425,
+            "samples": [
+              1.052425,
+              1.041775,
+              1.022981,
+              1.123692,
+              1.17451,
+              1.037107,
+              1.071513
+            ]
+          },
+          "validation_kkt_applications": {
+            "samples": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "workspace_preparation_ms": {
+            "median": 10.869838,
+            "samples": [
+              10.811823,
+              10.91527,
+              10.869838,
+              10.820472,
+              10.890033,
+              11.189583,
+              10.84072
+            ]
+          }
+        }
+      },
+      "candidate_change_percent": -9.132557155395016,
+      "case": "DTOC3_N30000",
+      "classification": "QLR2-AN-V-V",
+      "hessian_nonzeros": 89997,
+      "jacobian_nonzeros": 209993,
+      "m": 59998,
+      "n": 89999,
+      "problem": "DTOC3"
+    }
+  ],
+  "generated_at": "2026-07-21T23:01:19.901343+00:00",
+  "host": {
+    "cpu": 4,
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+    "platform": "Linux-6.17.0-40-generic-x86_64-with-glibc2.39"
+  },
+  "protocol": {
+    "interleaved": true,
+    "interleaved_variants": [
+      "baseline",
+      "candidate"
+    ],
+    "max_constraint_violation": 1e-06,
+    "max_objective_relative_difference": 1e-08,
+    "repetitions": 7,
+    "thread_environment": {
+      "BLIS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "warmup": 1
+  },
+  "schema_version": 3,
+  "source": {
+    "commit": "72a29c9aab198afa0dbb940339022a22c415a4eb",
+    "dirty": true,
+    "root": "/home/nevskys/projects/Ipopt"
+  }
+}

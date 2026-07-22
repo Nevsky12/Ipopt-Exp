@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-21T23:59:00+03:00",
+  "source_commit": "72a29c9aab198afa0dbb940339022a22c415a4eb",
+  "working_tree_dirty": true,
+  "build": {
+    "compiler": "/usr/bin/c++",
+    "flags": "-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer",
+    "ipopt_library": "/tmp/ipopt-restoration-asan.hwZMU8/src/.libs/libipopt.so",
+    "precision": "double",
+    "sanitizers": ["address", "undefined", "leak"]
+  },
+  "command": "IPOPT_CXX23_PRINT_CANDIDATE_STATS=1 /tmp/ipopt-cxx23-restoration-asan.uEDzgv/ipopt_cxx23_legacy_algorithm_canary_test",
+  "backend": {
+    "name": "DenseCandidateBackend",
+    "scope": "integration-test double only",
+    "wall_time_benchmark": false,
+    "note": "Materializes the full KKT operator densely; these counts validate routing and accounting, not performance."
+  },
+  "rows": [
+    {"fixed_treatment": "make_parameter", "scenario": "accepted", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 7, "fallbacks": 0, "reference_solves": 0, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 77, "backend_derivative_product_requests": 231, "validation_kkt_applications": 7},
+    {"fixed_treatment": "make_parameter_nodual", "scenario": "accepted", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 7, "fallbacks": 0, "reference_solves": 0, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 77, "backend_derivative_product_requests": 231, "validation_kkt_applications": 7},
+    {"fixed_treatment": "make_constraint", "scenario": "accepted", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 7, "fallbacks": 0, "reference_solves": 0, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 91, "backend_derivative_product_requests": 273, "validation_kkt_applications": 7},
+    {"fixed_treatment": "relax_bounds", "scenario": "accepted", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 7, "fallbacks": 0, "reference_solves": 0, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 98, "backend_derivative_product_requests": 294, "validation_kkt_applications": 7},
+    {"fixed_treatment": "make_parameter", "scenario": "accepted", "restoration": false, "reoptimize": true, "requests": 14, "accepted": 14, "fallbacks": 0, "reference_solves": 0, "factorizations": 14, "backsolves": 14, "backend_kkt_applications": 154, "backend_derivative_product_requests": 462, "validation_kkt_applications": 14},
+    {"fixed_treatment": "make_parameter", "scenario": "accepted", "restoration": true, "reoptimize": false, "requests": 10, "accepted": 10, "fallbacks": 0, "reference_solves": 0, "factorizations": 10, "backsolves": 10, "backend_kkt_applications": 118, "backend_derivative_product_requests": 354, "validation_kkt_applications": 10},
+    {"fixed_treatment": "make_parameter", "scenario": "backend_failure_once", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 6, "fallbacks": 1, "reference_solves": 1, "factorizations": 6, "backsolves": 6, "backend_kkt_applications": 66, "backend_derivative_product_requests": 198, "validation_kkt_applications": 6},
+    {"fixed_treatment": "make_parameter", "scenario": "inertia_rejection_once", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 6, "fallbacks": 1, "reference_solves": 1, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 66, "backend_derivative_product_requests": 198, "validation_kkt_applications": 6},
+    {"fixed_treatment": "make_parameter", "scenario": "residual_rejection_once", "restoration": false, "reoptimize": false, "requests": 7, "accepted": 6, "fallbacks": 1, "reference_solves": 1, "factorizations": 7, "backsolves": 7, "backend_kkt_applications": 66, "backend_derivative_product_requests": 198, "validation_kkt_applications": 7}
+  ]
+}

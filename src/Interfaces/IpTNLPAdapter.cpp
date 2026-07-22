@@ -29,6 +29,7 @@
 # include "IpWsmpSolverInterface.hpp"
 #endif
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -425,9 +426,6 @@ bool TNLPAdapter::GetSpaces(
          con_numeric_md.clear();
       }
 
-      // allocate internal space to store the full jacobian
-      jac_g_ = new Number[nz_full_jac_g_];
-
       /* Spaces for bounds. We need to remove the fixed variables
        * and find out which bounds do not exist. */
       Number* x_l = new Number[n_full_x_];
@@ -721,6 +719,13 @@ bool TNLPAdapter::GetSpaces(
          P_x_full_x_space_ = NULL;
          P_x_full_x_ = NULL;
       }
+
+      // Keep callback scratch behind the existing Jacobian allocation. This
+      // avoids changing TNLPAdapter's public C++ object layout and allocates no
+      // extra storage for the common case without removed fixed variables.
+      const Index callback_workspace_size =
+         IsValid(P_x_full_x_) ? std::max(n_full_x_, nz_full_h_) : 0;
+      jac_g_ = new Number[nz_full_jac_g_ + callback_workspace_size];
 
       P_x_x_L_space_ = new ExpansionMatrixSpace(n_x_var, n_x_l, x_l_map);
       px_l_space_ = GetRawPtr(P_x_x_L_space_);
@@ -1741,7 +1746,8 @@ bool TNLPAdapter::Eval_grad_f(
    {
       if( IsValid(P_x_full_x_) )
       {
-         Number* full_grad_f = new Number[n_full_x_];
+         Number empty_full_grad_f = 0.;
+         Number* full_grad_f = n_full_x_ == 0 ? &empty_full_grad_f : jac_g_ + nz_full_jac_g_;
          if( tnlp_->eval_grad_f(n_full_x_, full_x_, new_x, full_grad_f) )
          {
             const Index* x_pos = P_x_full_x_->ExpandedPosIndices();
@@ -1751,7 +1757,6 @@ bool TNLPAdapter::Eval_grad_f(
             }
             retvalue = true;
          }
-         delete[] full_grad_f;
       }
       else
       {
@@ -1972,7 +1977,8 @@ bool TNLPAdapter::Eval_h(
 
    if( h_idx_map_ )
    {
-      Number* full_h = new Number[nz_full_h_];
+      Number empty_full_h = 0.;
+      Number* full_h = nz_full_h_ == 0 ? &empty_full_h : jac_g_ + nz_full_jac_g_;
 
       if( tnlp_->eval_h(n_full_x_, full_x_, new_x, obj_factor, n_full_g_, full_lambda_, new_y, nz_full_h_, NULL, NULL,
                         full_h) )
@@ -1983,7 +1989,6 @@ bool TNLPAdapter::Eval_h(
          }
          retval = true;
       }
-      delete[] full_h;
    }
    else
    {
@@ -2709,13 +2714,14 @@ bool TNLPAdapter::ResortBoundMultipliers(
    {
       // Lagrangian should be grad_f + lambda jac - z_L + z_U  == 0
       // so fixed variables get z_L - z_U = grad_f + lambda_jac
-      Number* mult = new Number[n_full_x_];
-      memset(mult, 0, sizeof(Number) * n_full_x_);
+      Number empty_mult = 0.;
+      Number* mult = n_full_x_ == 0 ? &empty_mult : jac_g_ + nz_full_jac_g_;
+      const Number zero = 0.;
+      IpBlasCopy(n_full_x_, &zero, 0, mult, 1);
 
       bool new_x = update_local_x(x);
       if( !tnlp_->eval_grad_f(n_full_x_, full_x_, new_x, mult) )
       {
-         delete[] mult;
          return false;
       }
 
@@ -2723,7 +2729,6 @@ bool TNLPAdapter::ResortBoundMultipliers(
       {
          if( !internal_eval_jac_g(false) )
          {
-            delete[] mult;
             return false;
          }
          DBG_ASSERT(dynamic_cast<const DenseVector*>(&y_c));
@@ -2788,8 +2793,6 @@ bool TNLPAdapter::ResortBoundMultipliers(
             z_U_orig[xidx] = Max(Number(0.0), -mult[xidx]);
          }
       }
-
-      delete[] mult;
    }
 
    return true;

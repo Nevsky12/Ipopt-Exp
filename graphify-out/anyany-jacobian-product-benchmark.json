@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "name": "cxx23_anyany_native_jacobian_product",
+  "metric": "nanoseconds_per_call",
+  "compiler": "GNU 13.3.0",
+  "build_type": "Release",
+  "anyany_commit": "560301c278e46bb527e49b1739dcb841035a9932",
+  "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+  "cpu_affinity": 4,
+  "iterations": 20000000,
+  "warmup": 10000,
+  "repetitions": 7,
+  "direct_median": 2.51168855,
+  "anyany_median": 6.72863965,
+  "overhead_ns": 4.2169511,
+  "ratio": 2.6789307336691883,
+  "direct_samples": [
+    2.4392346,
+    2.50006745,
+    2.51069605,
+    2.51168855,
+    2.542549,
+    2.55912225,
+    2.59726225
+  ],
+  "anyany_samples": [
+    6.60308005,
+    6.6595078,
+    6.7267178,
+    6.72863965,
+    6.77206875,
+    6.90629505,
+    7.29510155
+  ]
+}
