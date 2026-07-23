@@ -82,17 +82,7 @@ bool RestoIterateInitializer::SetInitialIterates()
    SmartPtr<Vector> pc = Cnew_x->GetCompNonConst(2);
    SmartPtr<const Vector> cvec = orig_ip_cq->curr_c();
    DBG_PRINT_VECTOR(2, "cvec", *cvec);
-   SmartPtr<Vector> a = nc->MakeNew();
-   SmartPtr<Vector> b = nc->MakeNew();
-   a->Set(resto_mu / (2. * rho));
-   a->Axpy(-0.5, *cvec);
-   b->Copy(*cvec);
-   b->Scal(resto_mu / (2. * rho));
-   DBG_PRINT_VECTOR(2, "a", *a);
-   DBG_PRINT_VECTOR(2, "b", *b);
-   solve_quadratic(*a, *b, *nc);
-   pc->Copy(*cvec);
-   pc->Axpy(1., *nc);
+   ComputeSlackVariables(resto_mu / (2. * rho), *cvec, *nc, *pc);
    DBG_PRINT_VECTOR(2, "nc", *nc);
    DBG_PRINT_VECTOR(2, "pc", *pc);
 
@@ -101,15 +91,7 @@ bool RestoIterateInitializer::SetInitialIterates()
    SmartPtr<Vector> nd = Cnew_x->GetCompNonConst(3);
    SmartPtr<Vector> pd = Cnew_x->GetCompNonConst(4);
    cvec = orig_ip_cq->curr_d_minus_s();
-   a = nd->MakeNew();
-   b = nd->MakeNew();
-   a->Set(resto_mu / (2. * rho));
-   a->Axpy(-0.5, *cvec);
-   b->Copy(*cvec);
-   b->Scal(resto_mu / (2. * rho));
-   solve_quadratic(*a, *b, *nd);
-   pd->Copy(*cvec);
-   pd->Axpy(1., *nd);
+   ComputeSlackVariables(resto_mu / (2. * rho), *cvec, *nd, *pd);
    DBG_PRINT_VECTOR(2, "nd", *nd);
    DBG_PRINT_VECTOR(2, "pd", *pd);
 
@@ -213,19 +195,61 @@ bool RestoIterateInitializer::SetInitialIterates()
    return true;
 }
 
-void RestoIterateInitializer::solve_quadratic(
-   const Vector& a,
-   const Vector& b,
-   Vector&       v
+void RestoIterateInitializer::ComputeSlackVariables(
+   Number        barrier_over_twice_penalty,
+   const Vector& residual,
+   Vector&       negative_variable,
+   Vector&       positive_variable
 )
 {
-   v.Copy(a);
-   v.ElementWiseMultiply(a);
+   DBG_ASSERT(barrier_over_twice_penalty >= 0.);
+   DBG_ASSERT(residual.Dim() == negative_variable.Dim());
+   DBG_ASSERT(residual.Dim() == positive_variable.Dim());
 
-   v.Axpy(1., b);
-   v.ElementWiseSqrt();
+   SmartPtr<Vector> zero = residual.MakeNew();
+   zero->Set(0.);
+   SmartPtr<Vector> smaller = residual.MakeNew();
+   if( barrier_over_twice_penalty == 0. )
+   {
+      smaller->Set(0.);
+   }
+   else
+   {
+      // radius = hypot(t, |residual|/2), evaluated by scaling every entry
+      // with its own maximum. Since t is positive, the division has no 0/0.
+      SmartPtr<Vector> half_magnitude = residual.MakeNewCopy();
+      half_magnitude->ElementWiseAbs();
+      half_magnitude->Scal(0.5);
+      SmartPtr<Vector> maximum = residual.MakeNew();
+      maximum->Set(barrier_over_twice_penalty);
+      maximum->ElementWiseMax(*half_magnitude);
+      SmartPtr<Vector> ratio = residual.MakeNew();
+      ratio->Set(barrier_over_twice_penalty);
+      ratio->ElementWiseMin(*half_magnitude);
+      ratio->ElementWiseDivide(*maximum);
+      ratio->ElementWiseMultiply(*ratio);
+      ratio->AddScalar(1.);
+      ratio->ElementWiseSqrt();
+      ratio->ElementWiseMultiply(*maximum);
 
-   v.Axpy(1., a);
+      // smaller = t + t^2 / (radius + |residual|/2). This is the
+      // cancellation-free root on either side of zero.
+      maximum->Copy(*ratio);
+      maximum->Axpy(1., *half_magnitude);
+      ratio->Set(barrier_over_twice_penalty);
+      ratio->ElementWiseDivide(*maximum);
+      smaller->Set(barrier_over_twice_penalty);
+      smaller->Axpy(barrier_over_twice_penalty, *ratio);
+   }
+
+   negative_variable.Copy(residual);
+   negative_variable.Scal(-1.);
+   negative_variable.ElementWiseMax(*zero);
+   negative_variable.Axpy(1., *smaller);
+
+   positive_variable.Copy(residual);
+   positive_variable.ElementWiseMax(*zero);
+   positive_variable.Axpy(1., *smaller);
 }
 
 } // namespace Ipopt

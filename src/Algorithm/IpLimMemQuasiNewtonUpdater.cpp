@@ -138,6 +138,42 @@ bool LimMemQuasiNewtonUpdater::InitializeImpl(
    return true;
 }
 
+Number LimMemQuasiNewtonUpdater::ComputeInitialSigma(
+   Number        sTy,
+   const Vector& s,
+   const Vector& y
+) const
+{
+   if( limited_memory_initialization_ == CONSTANT )
+   {
+      return limited_memory_init_val_;
+   }
+
+   const Number s_norm = s.Nrm2();
+   const Number y_norm = y.Nrm2();
+   DBG_ASSERT(sTy > 0.);
+   DBG_ASSERT(s_norm > 0.);
+   switch( limited_memory_initialization_ )
+   {
+      case SCALAR1:
+         return (sTy / s_norm) / s_norm;
+      case SCALAR2:
+         return (y_norm / sTy) * y_norm;
+      case SCALAR3:
+      {
+         const Number scalar1 = (sTy / s_norm) / s_norm;
+         const Number scalar2 = (y_norm / sTy) * y_norm;
+         return 0.5 * scalar1 + 0.5 * scalar2;
+      }
+      case SCALAR4:
+         return y_norm / s_norm;
+      case CONSTANT:
+         return limited_memory_init_val_;
+   }
+   DBG_ASSERT(false && "Unknown limited-memory initialization.");
+   return limited_memory_init_val_;
+}
+
 void LimMemQuasiNewtonUpdater::UpdateHessian()
 {
    DBG_START_METH("LimMemQuasiNewtonUpdater::UpdateHessian",
@@ -403,28 +439,16 @@ void LimMemQuasiNewtonUpdater::UpdateHessian()
             if( !update_for_resto_ || !limited_memory_special_for_resto_ )
             {
                // Compute the initial matrix B_0
-               switch( limited_memory_initialization_ )
-               {
-                  case SCALAR1:
-                     sigma_ = sTy_new / std::pow(s_new->Nrm2(), 2);
-                     break;
-                  case SCALAR2:
-                     sigma_ = std::pow(y_new->Nrm2(), 2) / sTy_new;
-                     break;
-                  case SCALAR3:
-                     sigma_ = (sTy_new / std::pow(s_new->Nrm2(), 2) + std::pow(y_new->Nrm2(), 2) / sTy_new) / 2.;
-                     break;
-                  case SCALAR4:
-                     sigma_ = std::sqrt(sTy_new / std::pow(s_new->Nrm2(), 2) * std::pow(y_new->Nrm2(), 2) / sTy_new);
-                     break;
-                  case CONSTANT:
-                     sigma_ = limited_memory_init_val_;
-                     break;
-               }
+               sigma_ = ComputeInitialSigma(sTy_new, *s_new, *y_new);
                Jnlst().Printf(J_DETAILED, J_HESSIAN_APPROXIMATION,
                               "sigma (for B0) is %e\n", sigma_);
-               if( sigma_ < sigma_safe_min_ || sigma_ > sigma_safe_max_ )
+               if( !std::isfinite(sigma_) ||
+                   sigma_ < sigma_safe_min_ || sigma_ > sigma_safe_max_ )
                {
+                  if( std::isnan(sigma_) || sigma_ <= 0. )
+                  {
+                     sigma_ = limited_memory_init_val_;
+                  }
                   sigma_ = Max(Min(sigma_safe_max_, sigma_), sigma_safe_min_);
                   IpData().Append_info_string("Wp");
                   Jnlst().Printf(J_DETAILED, J_HESSIAN_APPROXIMATION,
@@ -557,24 +581,7 @@ void LimMemQuasiNewtonUpdater::UpdateHessian()
                   // ToDo: What lower bound to use?
                   Number sTy_new = Max(Number(1e-8), std::abs(s_new->Dot(*y_new)));
                   DBG_ASSERT(sTy_new != 0.);
-                  switch( limited_memory_initialization_ )
-                  {
-                     case SCALAR1:
-                        sigma_ = sTy_new / std::pow(s_new->Nrm2(), 2);
-                        break;
-                     case SCALAR2:
-                        sigma_ = std::pow(y_new->Nrm2(), 2) / sTy_new;
-                        break;
-                     case SCALAR3:
-                        sigma_ = (sTy_new / std::pow(s_new->Nrm2(), 2) + std::pow(y_new->Nrm2(), 2) / sTy_new) / 2.;
-                        break;
-                     case SCALAR4:
-                        sigma_ = std::sqrt(sTy_new / std::pow(s_new->Nrm2(), 2) * std::pow(y_new->Nrm2(), 2) / sTy_new);
-                        break;
-                     case CONSTANT:
-                        sigma_ = limited_memory_init_val_;
-                        break;
-                  }
+                  sigma_ = ComputeInitialSigma(sTy_new, *s_new, *y_new);
                }
                Jnlst().Printf(J_DETAILED, J_HESSIAN_APPROXIMATION,
                               "sigma (for B0) is %e\n", sigma_);

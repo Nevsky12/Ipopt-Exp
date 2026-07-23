@@ -62,15 +62,6 @@ private:
    );
    ///@}
 
-   /** @name Auxiliary methods */
-   ///@{
-   /** Method for solving the quadratic vector equation v^2 + 2a*v - b = 0 */
-   void solve_quadratic(
-      const Vector& a,
-      const Vector& b,
-      Vector&       v
-   );
-   ///@}
 };
 
 } // namespace Ipopt

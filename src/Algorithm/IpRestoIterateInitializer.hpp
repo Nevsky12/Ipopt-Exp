@@ -52,6 +52,18 @@ public:
       SmartPtr<RegisteredOptions> roptions
    );
 
+   /** Compute the positive restoration variables p and n from p - n = residual.
+    *
+    *  This form avoids both squaring large residuals and recovering the
+    *  smaller variable by subtracting nearly equal values.
+    */
+   static void ComputeSlackVariables(
+      Number        barrier_over_twice_penalty,
+      const Vector& residual,
+      Vector&       negative_variable,
+      Vector&       positive_variable
+   );
+
 private:
    /**@name Default Compiler Generated Methods
     * (Hidden to avoid implicit creation/calling).
@@ -91,15 +103,6 @@ private:
     */
    SmartPtr<EqMultiplierCalculator> resto_eq_mult_calculator_;
 
-   /** @name Auxiliary functions */
-   ///@{
-   /** Method for solving the quadratic vector equation v^2 + 2a*v - b = 0 */
-   void solve_quadratic(
-      const Vector& a,
-      const Vector& b,
-      Vector&     v
-   );
-   ///@}
 };
 
 } // namespace Ipopt

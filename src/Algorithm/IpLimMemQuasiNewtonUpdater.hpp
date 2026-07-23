@@ -312,6 +312,13 @@ private:
       const Vector& y_new
    );
 
+   /** Compute the scalar initial Hessian without avoidable square overflow. */
+   Number ComputeInitialSigma(
+      Number        sTy,
+      const Vector& s,
+      const Vector& y
+   ) const;
+
    /** Update the internal data, such as the S, Y, L, D etc matrices
     *  and vectors that are required for computing the compact
     *  representation.

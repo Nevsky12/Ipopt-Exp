@@ -18,6 +18,44 @@ namespace Ipopt
 static const Index dbg_verbosity = 0;
 #endif
 
+namespace
+{
+class CompensatedAccumulator
+{
+public:
+   void Add(
+      Number value
+   )
+   {
+      const Number updated = sum_ + value;
+      if( !std::isfinite(sum_) || !std::isfinite(value) || !std::isfinite(updated) )
+      {
+         sum_ = updated;
+         correction_ = 0.;
+         return;
+      }
+      if( std::abs(sum_) >= std::abs(value) )
+      {
+         correction_ += (sum_ - updated) + value;
+      }
+      else
+      {
+         correction_ += (value - updated) + sum_;
+      }
+      sum_ = updated;
+   }
+
+   Number Value() const
+   {
+      return sum_ + correction_;
+   }
+
+private:
+   Number sum_ = 0.;
+   Number correction_ = 0.;
+};
+} // namespace
+
 CompoundVector::CompoundVector(
    const CompoundVectorSpace* owner_space,
    bool                       create_new
@@ -133,38 +171,37 @@ Number CompoundVector::DotImpl(
    const CompoundVector* comp_x = static_cast<const CompoundVector*>(&x);
    DBG_ASSERT(dynamic_cast<const CompoundVector*>(&x));
    DBG_ASSERT(NComps() == comp_x->NComps());
-   Number dot = 0.;
+   CompensatedAccumulator dot;
    for( Index i = 0; i < NComps(); i++ )
    {
       DBG_ASSERT(ConstComp(i));
-      dot += ConstComp(i)->Dot(*comp_x->GetComp(i));
+      dot.Add(ConstComp(i)->Dot(*comp_x->GetComp(i)));
    }
-   return dot;
+   return dot.Value();
 }
 
 Number CompoundVector::Nrm2Impl() const
 {
    DBG_START_METH("CompoundVector::Nrm2Impl", dbg_verbosity);
    DBG_ASSERT(vectors_valid_);
-   Number sum = 0.;
+   Number norm = 0.;
    for( Index i = 0; i < NComps(); i++ )
    {
-      Number nrm2 = ConstComp(i)->Nrm2();
-      sum += nrm2 * nrm2;
+      norm = std::hypot(norm, ConstComp(i)->Nrm2());
    }
-   return std::sqrt(sum);
+   return norm;
 }
 
 Number CompoundVector::AsumImpl() const
 {
    DBG_START_METH("CompoundVector::AsumImpl", dbg_verbosity);
    DBG_ASSERT(vectors_valid_);
-   Number sum = 0.;
+   CompensatedAccumulator sum;
    for( Index i = 0; i < NComps(); i++ )
    {
-      sum += ConstComp(i)->Asum();
+      sum.Add(ConstComp(i)->Asum());
    }
-   return sum;
+   return sum.Value();
 }
 
 Number CompoundVector::AmaxImpl() const
@@ -344,24 +381,24 @@ Number CompoundVector::SumImpl() const
 {
    DBG_START_METH("CompoundVector::SumImpl", dbg_verbosity);
    DBG_ASSERT(vectors_valid_);
-   Number sum = 0.;
+   CompensatedAccumulator sum;
    for( Index i = 0; i < NComps(); i++ )
    {
-      sum += ConstComp(i)->Sum();
+      sum.Add(ConstComp(i)->Sum());
    }
-   return sum;
+   return sum.Value();
 }
 
 Number CompoundVector::SumLogsImpl() const
 {
    DBG_START_METH("CompoundVector::SumLogsImpl", dbg_verbosity);
    DBG_ASSERT(vectors_valid_);
-   Number sum = 0.;
+   CompensatedAccumulator sum;
    for( Index i = 0; i < NComps(); i++ )
    {
-      sum += ConstComp(i)->SumLogs();
+      sum.Add(ConstComp(i)->SumLogs());
    }
-   return sum;
+   return sum.Value();
 }
 
 void CompoundVector::ElementWiseSgnImpl()

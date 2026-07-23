@@ -476,13 +476,48 @@ public:
          }
       }
 
-      for( Index structured = 0; structured < structured_to_full_.size(); ++structured )
-      {
-         rhs[structured] = request.rhs[structured_to_full_[structured]];
-      }
+      WriteStructuredRightHandSide(request.rhs, rhs);
       report.independent_full_inertia =
          CertifyFullInertia(diagonal, regularization);
       return report;
+   }
+
+   /** Assemble only a new RHS for the current numeric factorization. */
+   EvaluationResult assemble_stage_rhs(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   ) const
+   {
+      if( !configuration_error_.empty() )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            configuration_error_
+         });
+      }
+      if( rhs.size() != structured_to_full_.size() ||
+          request.rhs.size() != layout_.full_direction_dimension )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::dimension_mismatch,
+            "equality-stage RHS assembly has the wrong dimension"
+         });
+      }
+      if( request.state.numeric_revision == 0 ||
+          request.state.numeric_revision != cached_numeric_revision_ )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::numeric_mismatch,
+            "equality-stage RHS assembly does not match the current numeric factor"
+         });
+      }
+      if( EvaluationResult valid = request.kkt.validate_state(request.state);
+          !valid )
+      {
+         return valid;
+      }
+      WriteStructuredRightHandSide(request.rhs, rhs);
+      return {};
    }
 
    EvaluationValue<StageStructuredWork> reconstruct_stage_direction(
@@ -516,6 +551,19 @@ public:
    }
 
 private:
+   void WriteStructuredRightHandSide(
+      std::span<const Number> full_rhs,
+      std::span<Number>       structured_rhs
+   ) const noexcept
+   {
+      for( Index structured = 0;
+           structured < structured_to_full_.size();
+           ++structured )
+      {
+         structured_rhs[structured] = full_rhs[structured_to_full_[structured]];
+      }
+   }
+
    std::optional<CertifiedInertia> CertifyFullInertia(
       std::span<const Number>      diagonal,
       PrimalDualRegularization    regularization

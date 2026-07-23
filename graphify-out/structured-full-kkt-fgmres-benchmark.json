@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-22T14:34:47.336995+00:00",
+  "baseline_commit": "b06a2f7b054300a19aa35f010a86e1ea33546a1d",
+  "protocol": {
+    "interleaved": true,
+    "repetitions": 7,
+    "warmup": 1,
+    "cpu": 4,
+    "blas_threads": 1,
+    "operator_and_preconditioner": "K_delta / M = K_delta"
+  },
+  "cases": {
+    "DTOC3_N5000": {
+      "baseline_median_ms": 27.245444,
+      "candidate_median_ms": 26.749853,
+      "median_paired_change_percent": -2.948014977741731,
+      "iterations": 1,
+      "objective": 235.262481035,
+      "maximum_constraint_violation": 9.12681388798e-16,
+      "candidate_requests": 1,
+      "candidate_accepted": 1,
+      "candidate_fallbacks": 0,
+      "full_kkt_refinement_requests": 0,
+      "full_kkt_refinement_unsupported": 0,
+      "cold_workspace_preparation_ms": {
+        "baseline": 2.009438,
+        "candidate": 4.403521
+      }
+    },
+    "CAR2": {
+      "baseline_median_ms": 1793.281989,
+      "candidate_median_ms": 1738.917483,
+      "median_paired_change_percent": -1.198938177613107,
+      "baseline_backend_median_ms": 628.177362,
+      "candidate_backend_median_ms": 606.163771,
+      "iterations": 171,
+      "objective": 2.66608466558,
+      "maximum_constraint_violation": 1.6187051699e-13,
+      "candidate_requests": 171,
+      "candidate_accepted": 171,
+      "candidate_fallbacks": 0,
+      "factorizations": 173,
+      "backsolves": 171,
+      "full_kkt_refinement_requests": 0,
+      "full_kkt_refinement_unsupported": 0,
+      "cold_solver_construction_ms": {
+        "baseline": 2.330197,
+        "candidate": 4.1939
+      }
+    }
+  },
+  "forced_correction_gates": {
+    "typed_stage": {
+      "converged": true,
+      "fgmres_iterations": 1,
+      "factorizations": 0,
+      "backsolves": 1
+    },
+    "full_primal_dual_stage": {
+      "converged": true,
+      "factorizations": 0,
+      "full_kkt_residual_checked": true
+    },
+    "full_primal_dual_bordered": {
+      "converged": true,
+      "factorizations": 0,
+      "full_kkt_residual_checked": true
+    },
+    "outer_canary": {
+      "refinement_requests": 1,
+      "refinement_converged": 1,
+      "refinement_steps": 1,
+      "new_factorizations": 0
+    }
+  },
+  "replication_note": "A preceding identical seven-pair series measured paired changes of -0.62% on DTOC3_N5000 and +0.10% on CAR2; the final series measured -2.95% and -1.20%. No speed claim is made from this run-to-run spread.",
+  "interpretation": "Natural direct steps already pass the full-KKT gate, so adaptive FGMRES performs no hot-path Krylov work. Interleaved timing is neutral within run noise; the measurable cost is cold preallocated workspace construction."
+}

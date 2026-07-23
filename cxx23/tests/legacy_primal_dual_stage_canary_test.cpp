@@ -468,6 +468,13 @@ void RunLiveStageSolve(bool start_with_restoration)
          statistics.candidate_first_commit_failures == 0,
       "live full-stage direction failed a candidate gate");
    Check(
+      statistics.candidate_first_full_kkt_refinement_requests == 0 &&
+         statistics.candidate_first_full_kkt_refinement_converged == 0 &&
+         statistics.candidate_first_full_kkt_refinement_unsupported == 0 &&
+         statistics.candidate_first_validation_kkt_applications ==
+            statistics.candidate_first_requests,
+      "accurate live direct steps paid adaptive full-KKT refinement work");
+   Check(
       counters->main_creations > 0 &&
          counters->factory_calls ==
             counters->main_creations + counters->restoration_creations &&

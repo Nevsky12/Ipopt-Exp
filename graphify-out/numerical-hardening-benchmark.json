@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-23",
+  "scope": "Numerical hardening A/B on top of the existing structured-KKT and PDFullSpaceSolver FGMRES work",
+  "comparison": {
+    "baseline_source": "/tmp/ipopt-p0-ab.WnwtdY/baseline",
+    "baseline_build": "/tmp/ipopt-p0-ab.WnwtdY/baseline-build",
+    "candidate_source": "/home/nevskys/projects/Ipopt",
+    "candidate_build": "/tmp/ipopt-p0-ab.WnwtdY/candidate-build",
+    "compiler_flags": "-O3 -DNDEBUG -march=x86-64-v3",
+    "cpu_affinity": 2,
+    "environment": {
+      "OPENBLAS_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1"
+    },
+    "sampling": "warm-up each binary, then interleave baseline/candidate order"
+  },
+  "cutest": [
+    {
+      "problem": "CAR2",
+      "dimensions": {
+        "n": 5999,
+        "m": 4996,
+        "jacobian_nonzeros": 45956,
+        "hessian_nonzeros": 50964
+      },
+      "modes": [
+        {
+          "method": "iterative-refinement",
+          "samples_per_binary": 7,
+          "baseline_ipopt_ms": [
+            2118.154101,
+            1936.106145,
+            1944.057711,
+            2023.230502,
+            2102.148501,
+            2053.790332,
+            2069.241160
+          ],
+          "candidate_ipopt_ms": [
+            2058.336975,
+            2052.279316,
+            2050.652487,
+            2052.937645,
+            2040.960911,
+            2058.003144,
+            2037.296906
+          ],
+          "baseline_median_ipopt_ms": 2053.790332,
+          "candidate_median_ipopt_ms": 2052.279316,
+          "candidate_delta_percent": -0.0735721,
+          "baseline_median_refinement_ms": 256.671905518,
+          "candidate_median_refinement_ms": 260.345935822,
+          "candidate_refinement_delta_percent": 1.43141,
+          "status": 0,
+          "iterations": 236,
+          "objective": 2.66608466556,
+          "max_constraint_violation": 1.43218770177e-12,
+          "refinement_iterations": 240,
+          "backsolves": 240,
+          "kkt_applications": 476,
+          "representative_full_trajectory_equal": true
+        },
+        {
+          "method": "fgmres-kdelta",
+          "samples_per_binary": 5,
+          "baseline_ipopt_ms": [
+            2037.919622,
+            1988.111407,
+            2109.224757,
+            2113.348085,
+            2107.614127
+          ],
+          "candidate_ipopt_ms": [
+            2021.509263,
+            2053.429962,
+            2107.868426,
+            2101.415813,
+            2131.084611
+          ],
+          "baseline_median_ipopt_ms": 2107.614127,
+          "candidate_median_ipopt_ms": 2101.415813,
+          "candidate_delta_percent": -0.294091,
+          "baseline_median_refinement_ms": 319.188594818,
+          "candidate_median_refinement_ms": 321.993350983,
+          "candidate_refinement_delta_percent": 0.878714,
+          "status": 0,
+          "iterations": 236,
+          "objective": 2.66608466556,
+          "baseline_max_constraint_violation": 1.37179156923e-12,
+          "candidate_max_constraint_violation": 1.39421807432e-12,
+          "refinement_iterations": 240,
+          "backsolves": 240,
+          "kkt_applications": 716,
+          "representative_full_trajectory_equal": false,
+          "trajectory_difference": "roundoff-level; iteration count and objective are unchanged"
+        },
+        {
+          "method": "fgmres-k",
+          "samples_per_binary": 5,
+          "baseline_ipopt_ms": [
+            2048.780658,
+            1987.578360,
+            2008.124279,
+            1986.351619,
+            1997.277394
+          ],
+          "candidate_ipopt_ms": [
+            1992.273330,
+            2076.473313,
+            2003.081077,
+            1994.307901,
+            2052.301655
+          ],
+          "baseline_median_ipopt_ms": 1997.277394,
+          "candidate_median_ipopt_ms": 2003.081077,
+          "candidate_delta_percent": 0.290580,
+          "baseline_median_refinement_ms": 294.274091721,
+          "candidate_median_refinement_ms": 294.111490250,
+          "candidate_refinement_delta_percent": -0.0552551,
+          "status": 0,
+          "iterations": 236,
+          "objective": 2.66608466556,
+          "baseline_max_constraint_violation": 1.37179156923e-12,
+          "candidate_max_constraint_violation": 1.39421807432e-12,
+          "refinement_iterations": 240,
+          "backsolves": 240,
+          "kkt_applications": 716,
+          "representative_full_trajectory_equal": false,
+          "trajectory_difference": "roundoff-level; iteration count and objective are unchanged"
+        }
+      ]
+    },
+    {
+      "problem": "DTOC3_N5000",
+      "dimensions": {
+        "n": 14999,
+        "m": 9998,
+        "jacobian_nonzeros": 34993,
+        "hessian_nonzeros": 14997
+      },
+      "samples_per_binary": 31,
+      "modes": [
+        {
+          "method": "iterative-refinement",
+          "baseline_median_ipopt_ms": 24.842415,
+          "candidate_median_ipopt_ms": 24.956121,
+          "candidate_delta_percent": 0.457709,
+          "baseline_median_refinement_ms": 1.60598754883,
+          "candidate_median_refinement_ms": 1.61123275757,
+          "candidate_refinement_delta_percent": 0.326603,
+          "trajectory_equal": true
+        },
+        {
+          "method": "fgmres-kdelta",
+          "baseline_median_ipopt_ms": 25.247628,
+          "candidate_median_ipopt_ms": 25.242947,
+          "candidate_delta_percent": -0.0185404,
+          "baseline_median_refinement_ms": 1.82414054871,
+          "candidate_median_refinement_ms": 1.80506706238,
+          "candidate_refinement_delta_percent": -1.04561,
+          "trajectory_equal": true
+        },
+        {
+          "method": "fgmres-k",
+          "baseline_median_ipopt_ms": 25.509297,
+          "candidate_median_ipopt_ms": 25.240080,
+          "candidate_delta_percent": -1.05537,
+          "baseline_median_refinement_ms": 1.79505348206,
+          "candidate_median_refinement_ms": 1.79386138916,
+          "candidate_refinement_delta_percent": -0.0664099,
+          "trajectory_equal": true
+        }
+      ],
+      "common_result": {
+        "status": 0,
+        "iterations": 1,
+        "objective": 235.262481035,
+        "max_constraint_violation": 1.76811690289e-15,
+        "refinement_iterations": 1,
+        "backsolves": 1,
+        "iterative_refinement_kkt_applications": 2,
+        "fgmres_kkt_applications": 3
+      }
+    }
+  ],
+  "adversarial_nlp": {
+    "samples_per_passing_case_and_binary": 51,
+    "cases": [
+      {
+        "name": "ill-scaled-exact",
+        "conditioning": "variable scales 1e-12 and 1e12; Hessian diagonal spans 1e24 to 1e-24",
+        "baseline_median_ms": 1.502796,
+        "candidate_median_ms": 1.523120,
+        "candidate_delta_percent": 1.35241,
+        "status": 1,
+        "iterations": 14,
+        "trajectory_points": 15,
+        "solution_error": 9.2245546778890741e-7
+      },
+      {
+        "name": "ill-scaled-lbfgs",
+        "conditioning": "limited-memory scalar4; Hessian-equivalent scales span 16 orders",
+        "baseline_median_ms": 5.101154,
+        "candidate_median_ms": 5.085857,
+        "candidate_delta_percent": -0.299873,
+        "status": 0,
+        "iterations": 15,
+        "trajectory_points": 17,
+        "restoration_points": 3
+      },
+      {
+        "name": "ill-scaled-restoration",
+        "conditioning": "48-order exact Hessian case forced through restoration",
+        "baseline_median_ms": 1.792453,
+        "candidate_median_ms": 1.844145,
+        "candidate_delta_percent": 2.88387,
+        "status": 1,
+        "iterations": 15,
+        "trajectory_points": 17,
+        "restoration_points": 2,
+        "absolute_candidate_overhead_ms": 0.051692
+      },
+      {
+        "name": "near-degenerate",
+        "conditioning": "two equality rows differ by 1e-10",
+        "baseline_median_ms": 0.308203,
+        "candidate_median_ms": 0.310078,
+        "candidate_delta_percent": 0.608365,
+        "status": 0,
+        "iterations": 1,
+        "trajectory_points": 2,
+        "solution_error": 2.0879868944945201e-8
+      },
+      {
+        "name": "degenerate",
+        "conditioning": "exactly duplicated equality rows with dependency_detector=mumps",
+        "baseline": {
+          "exit_code": 139,
+          "result": "SIGSEGV before optimization"
+        },
+        "candidate": {
+          "samples": 51,
+          "median_ms": 0.929171,
+          "status": 0,
+          "iterations": 7,
+          "trajectory_points": 8,
+          "solution_error": 9.7477581562088744e-14,
+          "constraint_error": 0.0
+        }
+      }
+    ]
+  },
+  "numerical_regressions": [
+    "Neumaier-compensated dense and compound reductions preserve 1e16 + 1 - 1e16 = 1",
+    "hypot-based compound and block norms remain finite when the true norm is finite near Number::max()",
+    "restoration slack initialization remains positive and finite for residuals up to 1e200",
+    "FMA complementarity rows and direction reconstruction are checked against discriminating inputs"
+  ],
+  "validation": {
+    "release_cxx23_ctest": "18/18 passed",
+    "release_legacy_unit_tests": "all passed",
+    "asan_ubsan_cxx23_ctest": "18/18 passed",
+    "asan_ubsan_legacy_unit_tests": "all passed",
+    "git_diff_check": "passed"
+  },
+  "conclusion": "No material throughput regression on CAR2 or DTOC3. The performance changes are within approximately one percent on the CUTEst measurements. Robustness improves materially because exact dependency detection no longer dereferences an unallocated Jacobian buffer, and finite-range numerical primitives now cover cancellation, overflow, restoration, and complementarity edge cases."
+}

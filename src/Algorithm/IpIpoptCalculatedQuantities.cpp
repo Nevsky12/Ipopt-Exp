@@ -2522,7 +2522,7 @@ Number IpoptCalculatedQuantities::CalcNormOfType(
       case NORM_1:
          return vec1.Asum() + vec2.Asum();
       case NORM_2:
-         return std::sqrt(std::pow(vec1.Nrm2(), 2) + std::pow(vec2.Nrm2(), 2));
+         return std::hypot(vec1.Nrm2(), vec2.Nrm2());
       case NORM_MAX:
          return Max(vec1.Amax(), vec2.Amax());
       default:
@@ -2549,10 +2549,8 @@ Number IpoptCalculatedQuantities::CalcNormOfType(
       case NORM_2:
          for( Index i = 0; i < (Index) vecs.size(); i++ )
          {
-            Number nrm = vecs[i]->Nrm2();
-            result += nrm * nrm;
+            result = std::hypot(result, vecs[i]->Nrm2());
          }
-         result = std::sqrt(result);
          break;
       case NORM_MAX:
          for( Index i = 0; i < (Index) vecs.size(); i++ )

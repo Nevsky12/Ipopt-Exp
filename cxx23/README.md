@@ -264,6 +264,17 @@ residual. Proof failures are rejected before an expensive factorization. An
 opt-in regularization warm start reuses only a previously fully accepted
 perturbation; every new numeric matrix still passes all gates.
 
+Both structured candidate backends expose an adaptive `K_delta / M = K_delta`
+FGMRES correction after the outer full-KKT residual gate. The accepted direct
+step is the initial guess, and `M^-1` is a RHS-only condensation,
+`solve_rhs()` with the current stage/arrowhead factors, and full direction
+reconstruction. No matrix assembly, perturbation retry, quality improvement,
+or factorization is reachable from the Krylov preconditioner. All FGMRES
+storage is topology-sized and constructor-owned. Accurate direct steps take
+the existing one-apply validation path; only a failed residual requests the
+extra Krylov work, and the canary rejects any refinement reporting a new
+factorization.
+
 The request role is part of the assembler metadata: a main-problem assembler
 is still rejected for restoration and a restoration assembler is rejected for
 the main NLP. `MakeRestorationStageNlpTopology` instead builds a separate

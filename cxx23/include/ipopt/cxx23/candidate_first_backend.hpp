@@ -81,6 +81,44 @@ struct CandidateFirstWorkStatistics
    Index quality_improvements = 0;
 };
 
+/** Views for refining the last successful candidate with its current factor.
+ *
+ * The backend must treat direction as the initial guess and overwrite it only
+ * with a finite refined candidate.  This call is synchronous: no request view
+ * may be retained.  A supported implementation reuses the factor produced by
+ * the immediately preceding solve() and must report zero new factorizations.
+ */
+struct CandidateFirstRefinementRequest
+{
+   CandidateFirstRefinementRequest(
+      PrimalDualKktOperator&  kkt_value,
+      PrimalDualState         state_value,
+      std::span<const Number> rhs_value,
+      std::span<Number>       direction_value,
+      bool                    restoration_problem_value = false
+   )
+      : kkt(kkt_value),
+        state(state_value),
+        rhs(rhs_value),
+        direction(direction_value),
+        restoration_problem(restoration_problem_value)
+   {
+   }
+
+   PrimalDualKktOperator& kkt;
+   PrimalDualState state;
+   std::span<const Number> rhs;
+   std::span<Number> direction;
+   bool restoration_problem = false;
+};
+
+struct CandidateFirstRefinementResult
+{
+   CandidateFirstWorkStatistics work;
+   bool supported = false;
+   bool converged = false;
+};
+
 /** A backend's final proposed solution of KKT * direction = rhs.
  *
  * direction is deliberately unscaled by PDSystemSolver's alpha. Normally it
@@ -110,6 +148,16 @@ concept CandidateFirstBackend = requires(
       -> std::same_as<EvaluationValue<CandidateFirstSolveResult>>;
 };
 
+template <class Backend>
+concept CandidateFirstRefinementBackend = requires(
+   Backend& backend,
+   CandidateFirstRefinementRequest request
+)
+{
+   { backend.refine(request) }
+      -> std::same_as<EvaluationValue<CandidateFirstRefinementResult>>;
+};
+
 template <CandidateFirstBackend Backend>
 class CandidateFirstBackendAdapter
 {
@@ -126,6 +174,20 @@ public:
       return backend_.solve(request);
    }
 
+   EvaluationValue<CandidateFirstRefinementResult> candidate_first_refine(
+      CandidateFirstRefinementRequest request
+   )
+   {
+      if constexpr( CandidateFirstRefinementBackend<Backend> )
+      {
+         return backend_.refine(request);
+      }
+      else
+      {
+         return CandidateFirstRefinementResult{};
+      }
+   }
+
 private:
    Backend backend_;
 };
@@ -135,10 +197,16 @@ anyany_method(candidate_first_solve,
       requires(self.candidate_first_solve(request))
       ->EvaluationValue<CandidateFirstSolveResult>);
 
+anyany_method(candidate_first_refine,
+   (&self, CandidateFirstRefinementRequest request)
+      requires(self.candidate_first_refine(request))
+      ->EvaluationValue<CandidateFirstRefinementResult>);
+
 using AnyCandidateFirstBackend = aa::any_with<
    aa::move,
    aa::type_info,
-   candidate_first_solve>;
+   candidate_first_solve,
+   candidate_first_refine>;
 
 using SharedCandidateFirstBackend = std::shared_ptr<AnyCandidateFirstBackend>;
 
@@ -217,6 +285,20 @@ public:
          restoration_problem_ = request.restoration_problem;
       }
       return backend_->solve(request);
+   }
+
+   EvaluationValue<CandidateFirstRefinementResult> refine(
+      CandidateFirstRefinementRequest request
+   ) requires CandidateFirstRefinementBackend<Backend>
+   {
+      if( !backend_ )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::numeric_mismatch,
+            "candidate refinement requested before a successful backend solve"
+         });
+      }
+      return backend_->refine(request);
    }
 
 private:

@@ -781,41 +781,7 @@ public:
             "primal-dual complementarity diagonal is nonfinite");
       }
 
-      for( Index structured = 0;
-           structured < structured_to_full_.size();
-           ++structured )
-      {
-         rhs[structured] = request.rhs[structured_to_full_[structured]];
-      }
-      if( !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(z_lower_offset_, dimensions_.z_lower),
-             request.state.slack_x_lower,
-             kkt_layout_.primal_lower_bounds,
-             primal_structured_positions_,
-             1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(z_upper_offset_, dimensions_.z_upper),
-             request.state.slack_x_upper,
-             kkt_layout_.primal_upper_bounds,
-             primal_structured_positions_,
-             -1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(v_lower_offset_, dimensions_.v_lower),
-             request.state.slack_s_lower,
-             kkt_layout_.slack_lower_bounds,
-             slack_structured_positions_,
-             1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(v_upper_offset_, dimensions_.v_upper),
-             request.state.slack_s_upper,
-             kkt_layout_.slack_upper_bounds,
-             slack_structured_positions_,
-             -1.) ||
-          !AllFinite(rhs) )
+      if( !WriteStructuredRightHandSide(request, rhs) )
       {
          return AssemblyFailure(
             EvaluationErrorCode::nonfinite_output,
@@ -825,6 +791,64 @@ public:
       report.independent_full_inertia =
          CertifyReducedInertia(diagonal, regularization);
       return report;
+   }
+
+   /** Condense a new full-KKT RHS using the state of the current factor. */
+   EvaluationResult assemble_stage_rhs(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   ) const
+   {
+      if( !configuration_error_.empty() )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            configuration_error_
+         });
+      }
+      if( request.restoration_problem != options_.restoration_problem )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            "primal-dual stage RHS role does not match explicit metadata"
+         });
+      }
+      if( rhs.size() != structured_to_full_.size() ||
+          request.rhs.size() != layout_.full_direction_dimension )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::dimension_mismatch,
+            "primal-dual stage RHS assembly has the wrong dimension"
+         });
+      }
+      if( request.state.numeric_revision == 0 ||
+          request.state.numeric_revision != cached_numeric_revision_ )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::numeric_mismatch,
+            "primal-dual stage RHS does not match the current numeric factor"
+         });
+      }
+      if( EvaluationResult valid = request.kkt.validate_state(request.state);
+          !valid )
+      {
+         return valid;
+      }
+      if( !ValidComplementarityState(request.state) )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::nonfinite_output,
+            "primal-dual stage RHS has invalid complementarity state"
+         });
+      }
+      if( !WriteStructuredRightHandSide(request, rhs) )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::nonfinite_output,
+            "primal-dual reduced right-hand side is nonfinite"
+         });
+      }
+      return {};
    }
 
    EvaluationValue<StageStructuredWork> reconstruct_stage_direction(
@@ -913,6 +937,48 @@ public:
    }
 
 private:
+   bool WriteStructuredRightHandSide(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   ) const noexcept
+   {
+      for( Index structured = 0;
+           structured < structured_to_full_.size();
+           ++structured )
+      {
+         rhs[structured] = request.rhs[structured_to_full_[structured]];
+      }
+      return AddComplementarityRightHandSide(
+                rhs,
+                request.rhs.subspan(z_lower_offset_, dimensions_.z_lower),
+                request.state.slack_x_lower,
+                kkt_layout_.primal_lower_bounds,
+                primal_structured_positions_,
+                1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(z_upper_offset_, dimensions_.z_upper),
+            request.state.slack_x_upper,
+            kkt_layout_.primal_upper_bounds,
+            primal_structured_positions_,
+            -1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(v_lower_offset_, dimensions_.v_lower),
+            request.state.slack_s_lower,
+            kkt_layout_.slack_lower_bounds,
+            slack_structured_positions_,
+            1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(v_upper_offset_, dimensions_.v_upper),
+            request.state.slack_s_upper,
+            kkt_layout_.slack_upper_bounds,
+            slack_structured_positions_,
+            -1.) &&
+         AllFinite(rhs);
+   }
+
    static bool AllFinite(std::span<const Number> values) noexcept
    {
       return std::ranges::all_of(
@@ -1019,8 +1085,10 @@ private:
       for( Index bound = 0; bound < bounds.size(); ++bound )
       {
          complementarity_direction[bound] =
-            (rhs[bound] + primal_sign * multipliers[bound] *
-               primal_direction[bounds[bound]]) /
+            std::fma(
+               primal_sign * multipliers[bound],
+               primal_direction[bounds[bound]],
+               rhs[bound]) /
             slacks[bound];
       }
    }

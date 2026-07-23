@@ -373,6 +373,38 @@ if(IPOPT_CXX23_BUILD_TESTS)
       NAME ipopt_cxx23_pdfullspace_fgmres_refinement
       COMMAND ipopt_cxx23_pdfullspace_fgmres_refinement_test
     )
+
+    add_executable(
+      ipopt_cxx23_numerical_primitives_test
+      tests/numerical_primitives_test.cpp
+    )
+    target_link_libraries(
+      ipopt_cxx23_numerical_primitives_test
+      PRIVATE Ipopt::cxx23 ipopt_cxx23_legacy_ipopt
+    )
+    ipopt_cxx23_enable_strict_warnings(
+      ipopt_cxx23_numerical_primitives_test
+    )
+    add_test(
+      NAME ipopt_cxx23_numerical_primitives
+      COMMAND ipopt_cxx23_numerical_primitives_test
+    )
+
+    add_executable(
+      ipopt_cxx23_adversarial_nlp_test
+      tests/adversarial_nlp_test.cpp
+    )
+    target_link_libraries(
+      ipopt_cxx23_adversarial_nlp_test
+      PRIVATE Ipopt::cxx23 ipopt_cxx23_legacy_ipopt
+    )
+    ipopt_cxx23_enable_strict_warnings(
+      ipopt_cxx23_adversarial_nlp_test
+    )
+    add_test(
+      NAME ipopt_cxx23_adversarial_nlp
+      COMMAND ipopt_cxx23_adversarial_nlp_test
+    )
   endif()
 endif()
 

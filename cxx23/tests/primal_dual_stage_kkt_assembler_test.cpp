@@ -282,21 +282,81 @@ constexpr std::array<Number, 13> kRhs{{
 }};
 
 void CheckTrueResidual(
+   PrimalDualKktOperator&    kkt,
+   PrimalDualState           state,
+   std::span<const Number>   direction,
+   PrimalDualRegularization  regularization,
+   std::span<const Number>   rhs
+)
+{
+   state.regularization = regularization;
+   std::array<Number, 13> applied{};
+   Check(
+      kkt.apply_flat(state, direction, applied).has_value(),
+      "full stage direction could not be applied");
+   for( Index row = 0; row < rhs.size(); ++row )
+   {
+      CheckNear(applied[row], rhs[row], "full stage direction fails true KKT");
+   }
+}
+
+void CheckTrueResidual(
    PrimalDualKktOperator&           kkt,
    PrimalDualState                  state,
    const CandidateFirstSolveResult& result,
    std::span<const Number>          rhs
 )
 {
-   state.regularization = result.accepted_regularization;
+   CheckTrueResidual(
+      kkt, state, result.direction, result.accepted_regularization, rhs);
+}
+
+void TestFusedComplementarityArithmetic()
+{
+   constexpr Number multiplier = 0x1.2db6b8398e3dcp+43;
+   constexpr Number primal_direction = 0x1.c9090f9c5cb32p+99;
+   constexpr Number complementarity_direction = -0x1.0d52ee589b2b3p+143;
+   const Number expected = std::fma(
+      multiplier, primal_direction, complementarity_direction);
+   volatile Number rounded_product = multiplier * primal_direction;
+   const Number unfused = rounded_product + complementarity_direction;
+   Check(expected != unfused, "FMA cancellation fixture is not discriminating");
+
+   StateStorage storage;
+   storage.z_lower[0] = multiplier;
+   storage.slack_x_lower[0] = 1.;
+   const PrimalDualState state = storage.view(17);
+   PrimalDualKktOperator kkt = MakeKkt();
+   std::array<Number, 13> direction{};
+   direction[0] = primal_direction;
+   direction[7] = complementarity_direction;
    std::array<Number, 13> applied{};
    Check(
-      kkt.apply_flat(state, result.direction, applied).has_value(),
-      "full stage direction could not be applied");
-   for( Index row = 0; row < rhs.size(); ++row )
-   {
-      CheckNear(applied[row], rhs[row], "full stage direction fails true KKT");
-   }
+      kkt.apply_flat(state, direction, applied).has_value(),
+      "FMA complementarity KKT application failed");
+   Check(
+      applied[7] == expected,
+      "full KKT complementarity row lost a fused cancellation");
+
+   const auto provider_state = std::make_shared<ProviderState>();
+   PrimalDualStageKktAssembler assembler(
+      FullStageProvider(provider_state), kkt);
+   std::array<Number, 7> structured_direction{};
+   structured_direction[1] = primal_direction;
+   std::array<Number, 13> rhs{};
+   rhs[7] = -complementarity_direction;
+   std::array<Number, 13> reconstructed{};
+   const auto reconstruction = assembler.reconstruct_stage_direction(
+      {kkt, state, rhs, 3, false},
+      {},
+      structured_direction,
+      reconstructed);
+   Check(
+      reconstruction.has_value(),
+      "FMA complementarity reconstruction failed");
+   Check(
+      reconstructed[7] == -expected,
+      "complementarity reconstruction lost a fused cancellation");
 }
 
 void TestFullEightBlockAssemblyAndCache()
@@ -332,6 +392,25 @@ void TestFullEightBlockAssemblyAndCache()
          first->work.derivative_product_requests == 1,
       "full stage work or inertia accounting is wrong");
    CheckTrueResidual(kkt, state, *first, kRhs);
+
+   PrimalDualState factor_state = state;
+   factor_state.regularization = first->accepted_regularization;
+   std::array<Number, 13> perturbed;
+   std::ranges::copy(first->direction, perturbed.begin());
+   perturbed[0] += .2;
+   perturbed[3] -= .1;
+   perturbed[8] += .05;
+   const auto refined = backend.refine({
+      kkt, factor_state, kRhs, perturbed, false
+   });
+   Check(
+      refined.has_value() && refined->supported && refined->converged &&
+         refined->work.factorizations == 0 &&
+         refined->work.backsolves > 0 &&
+         refined->work.kkt_applications > 0,
+      "full eight-block FGMRES did not reuse the stage factor");
+   CheckTrueResidual(
+      kkt, factor_state, perturbed, first->accepted_regularization, kRhs);
 
    std::array<Number, 13> second_rhs = kRhs;
    second_rhs[0] = -1.25;
@@ -550,6 +629,7 @@ int main()
 {
    try
    {
+      TestFusedComplementarityArithmetic();
       TestFullEightBlockAssemblyAndCache();
       TestPreparedReverseNumericProof();
       TestSparseStageDerivativeScatter();

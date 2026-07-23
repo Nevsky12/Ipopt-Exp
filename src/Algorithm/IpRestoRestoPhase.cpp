@@ -6,6 +6,7 @@
 
 #include "IpRestoRestoPhase.hpp"
 #include "IpRestoIpoptNLP.hpp"
+#include "IpRestoIterateInitializer.hpp"
 
 namespace Ipopt
 {
@@ -66,15 +67,8 @@ bool RestoRestorationPhase::PerformRestoration()
    SmartPtr<Vector> nc = Cnew_x->GetCompNonConst(1);
    SmartPtr<Vector> pc = Cnew_x->GetCompNonConst(2);
    SmartPtr<const Vector> cvec = orig_ip_nlp->c(*Ccurr_x->GetComp(0));
-   SmartPtr<Vector> a = nc->MakeNew();
-   SmartPtr<Vector> b = nc->MakeNew();
-   a->Set(mu / (2. * rho));
-   a->Axpy(-0.5, *cvec);
-   b->Copy(*cvec);
-   b->Scal(mu / (2. * rho));
-   solve_quadratic(*a, *b, *nc);
-   pc->Copy(*cvec);
-   pc->Axpy(1., *nc);
+   RestoIterateInitializer::ComputeSlackVariables(
+      mu / (2. * rho), *cvec, *nc, *pc);
    DBG_PRINT_VECTOR(2, "nc", *nc);
    DBG_PRINT_VECTOR(2, "pc", *pc);
 
@@ -85,15 +79,8 @@ bool RestoRestorationPhase::PerformRestoration()
    SmartPtr<Vector> dvec = pd->MakeNew();
    dvec->Copy(*orig_ip_nlp->d(*Ccurr_x->GetComp(0)));
    dvec->Axpy(-1., *Ccurr_s->GetComp(0));
-   a = nd->MakeNew();
-   b = nd->MakeNew();
-   a->Set(mu / (2. * rho));
-   a->Axpy(-0.5, *dvec);
-   b->Copy(*dvec);
-   b->Scal(mu / (2. * rho));
-   solve_quadratic(*a, *b, *nd);
-   pd->Copy(*dvec);
-   pd->Axpy(1., *nd);
+   RestoIterateInitializer::ComputeSlackVariables(
+      mu / (2. * rho), *dvec, *nd, *pd);
    DBG_PRINT_VECTOR(2, "nd", *nd);
    DBG_PRINT_VECTOR(2, "pd", *pd);
 
@@ -106,21 +93,6 @@ bool RestoRestorationPhase::PerformRestoration()
    IpData().Append_info_string("R");
 
    return true;
-}
-
-void RestoRestorationPhase::solve_quadratic(
-   const Vector& a,
-   const Vector& b,
-   Vector&       v
-)
-{
-   v.Copy(a);
-   v.ElementWiseMultiply(a);
-
-   v.Axpy(1., b);
-   v.ElementWiseSqrt();
-
-   v.Axpy(1., a);
 }
 
 } // namespace Ipopt

@@ -247,7 +247,47 @@ public:
          ++report.eliminated_inertia.positive_eigenvalues;
       }
       report.independent_full_inertia = independent_full_inertia;
+      factor_numeric_revision_ = request.state.numeric_revision;
       return report;
+   }
+
+   EvaluationResult assemble_stage_rhs(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   )
+   {
+      if( request.state.numeric_revision == 0 ||
+          request.state.numeric_revision != factor_numeric_revision_ )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::numeric_mismatch,
+            "test stage RHS does not match the current factor"
+         });
+      }
+      if( condense_first_primal_ )
+      {
+         if( rhs.size() != 2 || request.rhs.size() != 3 )
+         {
+            return std::unexpected(EvaluationError{
+               EvaluationErrorCode::dimension_mismatch,
+               "test condensed RHS has the wrong size"
+            });
+         }
+         rhs[0] = request.rhs[1];
+         rhs[1] = request.rhs[2];
+      }
+      else
+      {
+         if( rhs.size() != request.rhs.size() )
+         {
+            return std::unexpected(EvaluationError{
+               EvaluationErrorCode::dimension_mismatch,
+               "test full RHS has the wrong size"
+            });
+         }
+         std::ranges::copy(request.rhs, rhs.begin());
+      }
+      return {};
    }
 
    EvaluationValue<StageStructuredWork> reconstruct_stage_direction(
@@ -321,6 +361,7 @@ private:
    StageStructuredLayout layout_;
    TinyStageModel model_;
    bool condense_first_primal_;
+   std::uint64_t factor_numeric_revision_ = 0;
 };
 
 PrimalDualKktOperator MakeKkt(TinyStageModel model)
@@ -475,6 +516,27 @@ void TestHappyPathAndErasure()
       erased_solve.has_value() && erased_solve->converged,
       "AnyAny-erased stage candidate failed");
    CheckTrueResidual(kkt, state, *erased_solve, rhs);
+   std::array<Number, 3> erased_direction{
+      erased_solve->direction[0] + .25,
+      erased_solve->direction[1] - .125,
+      erased_solve->direction[2] + .0625
+   };
+   PrimalDualState erased_state = state;
+   erased_state.regularization = erased_solve->accepted_regularization;
+   const auto erased_refinement = erased->candidate_first_refine({
+      kkt, erased_state, rhs, erased_direction, false
+   });
+   Check(
+      erased_refinement.has_value() &&
+         erased_refinement->supported && erased_refinement->converged &&
+         erased_refinement->work.factorizations == 0,
+      "AnyAny-erased full-KKT refinement failed");
+   CheckTrueResidual(
+      kkt,
+      erased_state,
+      erased_direction,
+      erased_solve->accepted_regularization,
+      rhs);
 
    std::array<Number, 3> direction_output;
    std::ranges::fill(
@@ -506,6 +568,7 @@ void TestHappyPathAndErasure()
       !wrong_output.has_value() &&
          wrong_output.error().code == EvaluationErrorCode::dimension_mismatch,
       "stage candidate accepted a wrong-size caller-owned output");
+
 }
 
 void TestPreparedWorkspaceBinding()
@@ -535,6 +598,51 @@ void TestPreparedWorkspaceBinding()
       !rejected.has_value() &&
          rejected.error().code == EvaluationErrorCode::invalid_layout,
       "mismatched prepared stage workspace was accepted");
+}
+
+void TestFullKktRefinementReusesCurrentFactor()
+{
+   const TinyStageModel model{4., 1., 3., 1., 2.};
+   PrimalDualKktOperator kkt = MakeKkt(model);
+   const auto layout = Layout(kkt, {2, 1});
+   const std::array<Number, 2> x{{0., 0.}};
+   const std::array<Number, 1> multipliers{{0.}};
+   PrimalDualState state = MakeState(x, multipliers);
+   const std::array<Number, 3> rhs{{2., -1., 3.}};
+
+   StageStructuredCandidateBackend backend(
+      TinyStageAssembler(layout, model));
+   const auto solved = backend.solve({kkt, state, rhs, 1, false});
+   Check(solved.has_value(), "direct step before full-KKT refinement failed");
+   state.regularization = solved->accepted_regularization;
+   std::array<Number, 3> direction{
+      solved->direction[0] + 0.5,
+      solved->direction[1] - 0.25,
+      solved->direction[2] + 0.125
+   };
+
+   const auto refined = backend.refine({kkt, state, rhs, direction, false});
+   Check(
+      refined.has_value() && refined->supported && refined->converged,
+      "adaptive full-KKT FGMRES did not converge");
+   Check(
+      refined->work.factorizations == 0 &&
+         refined->work.backsolves == 1 &&
+         refined->work.refinement_steps == 1 &&
+         refined->work.kkt_applications >= 2,
+      "full-KKT FGMRES did not reuse exactly one current-factor backsolve");
+   CheckTrueResidual(
+      kkt, state, direction, solved->accepted_regularization, rhs);
+
+   PrimalDualState stale_state = state;
+   ++stale_state.numeric_revision;
+   const auto stale = backend.refine({
+      kkt, stale_state, rhs, direction, false
+   });
+   Check(
+      !stale.has_value() &&
+         stale.error().code == EvaluationErrorCode::numeric_mismatch,
+      "full-KKT refinement accepted a stale numeric revision");
 }
 
 void TestInertiaRetryChangesPrimalRegularization()
@@ -822,6 +930,7 @@ int main()
    {
       TestHappyPathAndErasure();
       TestPreparedWorkspaceBinding();
+      TestFullKktRefinementReusesCurrentFactor();
       TestInertiaRetryChangesPrimalRegularization();
       TestCongruentCondensationCertificate();
       TestIndependentInertiaProofGate();

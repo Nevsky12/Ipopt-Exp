@@ -631,6 +631,17 @@ bool TNLPAdapter::GetSpaces(
          }
       } // while (!done)
 
+      // Dependency detection evaluates the full Jacobian before the vector
+      // spaces below are constructed. Allocate its values (and the existing
+      // fixed-variable callback tail) before entering that path.
+      const Index callback_workspace_size =
+         n_x_fixed_ > 0 &&
+         (fixed_variable_treatment_ == MAKE_PARAMETER ||
+          fixed_variable_treatment_ == MAKE_PARAMETER_NODUAL)
+         ? std::max(n_full_x_, nz_full_h_)
+         : 0;
+      jac_g_ = new Number[nz_full_jac_g_ + callback_workspace_size];
+
       // If requested, check if there are linearly dependent equality
       // constraints
       if( n_c > 0 && IsValid(dependency_detector_) )
@@ -719,13 +730,6 @@ bool TNLPAdapter::GetSpaces(
          P_x_full_x_space_ = NULL;
          P_x_full_x_ = NULL;
       }
-
-      // Keep callback scratch behind the existing Jacobian allocation. This
-      // avoids changing TNLPAdapter's public C++ object layout and allocates no
-      // extra storage for the common case without removed fixed variables.
-      const Index callback_workspace_size =
-         IsValid(P_x_full_x_) ? std::max(n_full_x_, nz_full_h_) : 0;
-      jac_g_ = new Number[nz_full_jac_g_ + callback_workspace_size];
 
       P_x_x_L_space_ = new ExpansionMatrixSpace(n_x_var, n_x_l, x_l_map);
       px_l_space_ = GetRawPtr(P_x_x_L_space_);

@@ -19,6 +19,44 @@ namespace Ipopt
 static const Index dbg_verbosity = 0;
 #endif
 
+namespace
+{
+class CompensatedAccumulator
+{
+public:
+   void Add(
+      Number value
+   )
+   {
+      const Number updated = sum_ + value;
+      if( !std::isfinite(sum_) || !std::isfinite(value) || !std::isfinite(updated) )
+      {
+         sum_ = updated;
+         correction_ = 0.;
+         return;
+      }
+      if( std::abs(sum_) >= std::abs(value) )
+      {
+         correction_ += (sum_ - updated) + value;
+      }
+      else
+      {
+         correction_ += (value - updated) + sum_;
+      }
+      sum_ = updated;
+   }
+
+   Number Value() const
+   {
+      return sum_ + correction_;
+   }
+
+private:
+   Number sum_ = 0.;
+   Number correction_ = 0.;
+};
+} // namespace
+
 DenseVector::DenseVector(
    const DenseVectorSpace* owner_space
 )
@@ -688,11 +726,12 @@ Number DenseVector::SumImpl() const
    }
    else
    {
-      sum = 0.;
+      CompensatedAccumulator accumulator;
       for( Index i = 0; i < Dim(); i++ )
       {
-         sum += values_[i];
+         accumulator.Add(values_[i]);
       }
+      sum = accumulator.Value();
    }
    return sum;
 }
@@ -711,11 +750,12 @@ Number DenseVector::SumLogsImpl() const
    }
    else
    {
-      sum = 0.0;
+      CompensatedAccumulator accumulator;
       for( Index i = 0; i < Dim(); i++ )
       {
-         sum += std::log(values_[i]);
+         accumulator.Add(std::log(values_[i]));
       }
+      sum = accumulator.Value();
    }
    return sum;
 }

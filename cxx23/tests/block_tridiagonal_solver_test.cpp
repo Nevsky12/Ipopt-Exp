@@ -733,6 +733,26 @@ void TestRefinementGate()
       solver.workspace_profile() == prepared_workspace,
       "refinement resized constructor-owned workspace");
 }
+
+void TestExtremeScaleNorms()
+{
+   const Number maximum = std::numeric_limits<Number>::max();
+   const std::array<Number, 2> diagonal{{maximum / 4., maximum / 8.}};
+   const std::array<Number, 1> lower{{0.}};
+   SymmetricBlockTridiagonalSolver solver({1, 1});
+   const auto factorization = solver.factorize(diagonal, lower);
+   Check(
+      factorization.has_value(),
+      "finite extreme-scale blocks overflowed a diagnostic norm");
+
+   const std::array<Number, 2> rhs{{maximum / 4., -maximum / 8.}};
+   std::array<Number, 2> solution{};
+   Check(
+      solver.solve_rhs(rhs, solution).has_value(),
+      "extreme-scale diagonal solve failed");
+   CheckNear(solution[0], 1., 1e-14, "wrong first extreme-scale solution");
+   CheckNear(solution[1], -1., 1e-14, "wrong second extreme-scale solution");
+}
 } // namespace
 
 int main()
@@ -745,6 +765,7 @@ int main()
       TestPivotedNumericSchurUpdates();
       TestFailuresAreTransactional();
       TestRefinementGate();
+      TestExtremeScaleNorms();
    }
    catch( const std::exception& exception )
    {

@@ -965,9 +965,9 @@ private:
       {
          for( Index column = 0; column < row; ++column )
          {
-            const Number average = 0.5 *
-               (matrix_work_[row * size + column] +
-                matrix_work_[column * size + row]);
+            const Number average =
+               0.5 * matrix_work_[row * size + column] +
+               0.5 * matrix_work_[column * size + row];
             matrix_work_[row * size + column] = average;
             matrix_work_[column * size + row] = average;
          }
@@ -994,16 +994,16 @@ private:
       Index                   size
    )
    {
-      Number squared_norm = 0.;
+      Number norm = 0.;
       for( Index row = 0; row < size; ++row )
       {
          for( Index column = 0; column < row; ++column )
          {
             const Number value = matrix[row * size + column];
-            squared_norm += 2. * value * value;
+            norm = std::hypot(norm, value, value);
          }
       }
-      return std::sqrt(squared_norm);
+      return norm;
    }
 
    EvaluationValue<StageFactorizationReport> FactorizeStage(
@@ -1210,9 +1210,9 @@ private:
       {
          for( Index column = 0; column < row; ++column )
          {
-            const Number average = 0.5 *
-               (inverse[row * size + column] +
-                inverse[column * size + row]);
+            const Number average =
+               0.5 * inverse[row * size + column] +
+               0.5 * inverse[column * size + row];
             inverse[row * size + column] = average;
             inverse[column * size + row] = average;
          }
@@ -1407,7 +1407,7 @@ private:
    {
       const Number* inverse =
          inverse_blocks_.data() + diagonal_offsets_[stage];
-      Number squared_residual = 0.;
+      Number computed_residual = 0.;
       for( Index row = 0; row < size; ++row )
       {
          for( Index column = 0; column < size; ++column )
@@ -1419,10 +1419,9 @@ private:
                   inverse[inner * size + column];
             }
             const Number residual = (row == column ? 1. : 0.) - product;
-            squared_residual += residual * residual;
+            computed_residual = std::hypot(computed_residual, residual);
          }
       }
-      const Number computed_residual = std::sqrt(squared_residual);
       const Number schur_norm = FrobeniusNorm(
          std::span<const Number>(stage_matrix_original_work_.data(), size * size));
       const Number inverse_norm = FrobeniusNorm(
@@ -1456,7 +1455,7 @@ private:
 
    static Number OrthogonalityError(const Number* orthogonal, Index size)
    {
-      Number squared_error = 0.;
+      Number error_norm = 0.;
       for( Index row = 0; row < size; ++row )
       {
          for( Index column = 0; column < size; ++column )
@@ -1468,10 +1467,10 @@ private:
                   orthogonal[inner * size + column];
             }
             const Number error = product - (row == column ? 1. : 0.);
-            squared_error += error * error;
+            error_norm = std::hypot(error_norm, error);
          }
       }
-      return std::sqrt(squared_error);
+      return error_norm;
    }
 
    Number ReconstructionError(
@@ -1480,7 +1479,7 @@ private:
       Index                   size
    ) const
    {
-      Number squared_error = 0.;
+      Number error_norm = 0.;
       for( Index row = 0; row < size; ++row )
       {
          for( Index column = 0; column < size; ++column )
@@ -1493,10 +1492,10 @@ private:
             }
             const Number error =
                stage_matrix_original_work_[row * size + column] - reconstructed;
-            squared_error += error * error;
+            error_norm = std::hypot(error_norm, error);
          }
       }
-      return std::sqrt(squared_error);
+      return error_norm;
    }
 
    void RotateJacobi(Index first, Index second, Index size, Number* orthogonal)
@@ -2148,12 +2147,12 @@ private:
 
    static Number FrobeniusNorm(std::span<const Number> values)
    {
-      Number squared_norm = 0.;
+      Number norm = 0.;
       for( Number value : values )
       {
-         squared_norm += value * value;
+         norm = std::hypot(norm, value);
       }
-      return std::sqrt(squared_norm);
+      return norm;
    }
 
    Number ComputeResidual(

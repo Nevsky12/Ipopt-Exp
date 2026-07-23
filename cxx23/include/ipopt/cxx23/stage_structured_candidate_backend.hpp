@@ -7,10 +7,12 @@
 
 #include <ipopt/cxx23/block_tridiagonal_solver.hpp>
 #include <ipopt/cxx23/candidate_first_backend.hpp>
+#include <ipopt/cxx23/fgmres.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <concepts>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <span>
@@ -116,6 +118,17 @@ concept StageStructuredAssembler = requires(
    } -> std::same_as<EvaluationValue<StageStructuredWork>>;
 };
 
+template <class Assembler>
+concept StageStructuredRightHandSideAssembler = requires(
+   Assembler&                  assembler,
+   CandidateFirstSolveRequest request,
+   std::span<Number>          rhs
+)
+{
+   { assembler.assemble_stage_rhs(request, rhs) }
+      -> std::same_as<EvaluationResult>;
+};
+
 struct StageStructuredCandidateOptions
 {
    BlockTridiagonalFactorizationOptions factorization;
@@ -125,6 +138,16 @@ struct StageStructuredCandidateOptions
    Number initial_dual_regularization = 1e-8;
    Number regularization_growth = 10.;
    Number maximum_regularization = 1e16;
+   /** Adaptive full-KKT correction using the current structured factor. */
+   FgmresOptions full_kkt_refinement{
+      .restart = 20,
+      .maximum_iterations = 20,
+      .relative_tolerance = 1e-11,
+      .absolute_tolerance = 1e-13,
+      .breakdown_tolerance = 1e-14,
+      .reorthogonalize = true,
+      .check_finite = true
+   };
 };
 
 /** Movable allocation bundle for a stage backend whose topology is known
@@ -148,7 +171,10 @@ public:
         lower_(solver_.storage().lower_values),
         structured_rhs_(solver_.storage().dimension),
         structured_solution_(solver_.storage().dimension),
-        full_direction_(layout.full_direction_dimension)
+        full_direction_(layout.full_direction_dimension),
+        full_kkt_fgmres_(
+           layout.full_direction_dimension,
+           options.full_kkt_refinement)
    {
    }
 
@@ -176,6 +202,7 @@ private:
    std::vector<Number> structured_rhs_;
    std::vector<Number> structured_solution_;
    std::vector<Number> full_direction_;
+   FgmresSolver full_kkt_fgmres_;
 };
 
 /** Independent candidate-first backend for explicitly stage-structured KKT.
@@ -203,7 +230,10 @@ public:
         lower_(solver_.storage().lower_values),
         structured_rhs_(solver_.storage().dimension),
         structured_solution_(solver_.storage().dimension),
-        full_direction_(layout_.full_direction_dimension)
+        full_direction_(layout_.full_direction_dimension),
+        full_kkt_fgmres_(
+           layout_.full_direction_dimension,
+           options_.full_kkt_refinement)
    {
       configuration_error_ = ValidateConfiguration();
    }
@@ -220,7 +250,8 @@ public:
         lower_(std::move(workspace.lower_)),
         structured_rhs_(std::move(workspace.structured_rhs_)),
         structured_solution_(std::move(workspace.structured_solution_)),
-        full_direction_(std::move(workspace.full_direction_))
+        full_direction_(std::move(workspace.full_direction_)),
+        full_kkt_fgmres_(std::move(workspace.full_kkt_fgmres_))
    {
       configuration_error_ = ValidateConfiguration();
    }
@@ -229,6 +260,7 @@ public:
       CandidateFirstSolveRequest request
    )
    {
+      current_factor_.reset();
       if( !configuration_error_.empty() )
       {
          return Failure(
@@ -434,9 +466,144 @@ public:
          };
          result.work = work;
          result.converged = true;
+         current_factor_ = CurrentFactor{
+            .numeric_revision = request.state.numeric_revision,
+            .regularization = regularization,
+            .restoration_problem = request.restoration_problem
+         };
          return result;
       }
       return Failure(EvaluationErrorCode::model_failure, std::move(last_failure));
+   }
+
+   /** Refine the last direct step with full K_delta and the current factor. */
+   EvaluationValue<CandidateFirstRefinementResult> refine(
+      CandidateFirstRefinementRequest request
+   ) requires StageStructuredRightHandSideAssembler<Assembler>
+   {
+      CandidateFirstRefinementResult result;
+      result.supported = true;
+      if( !current_factor_ )
+      {
+         return RefinementFailure(
+            EvaluationErrorCode::numeric_mismatch,
+            "stage full-KKT refinement has no current direct factor");
+      }
+      if( request.rhs.size() != layout_.full_direction_dimension ||
+          request.direction.size() != layout_.full_direction_dimension ||
+          request.kkt.flat_dimension() != layout_.full_direction_dimension )
+      {
+         return RefinementFailure(
+            EvaluationErrorCode::dimension_mismatch,
+            "stage full-KKT refinement has the wrong dimension");
+      }
+      if( request.state.numeric_revision != current_factor_->numeric_revision ||
+          request.restoration_problem != current_factor_->restoration_problem ||
+          !SameRegularization(
+             request.state.regularization,
+             current_factor_->regularization) )
+      {
+         return RefinementFailure(
+            EvaluationErrorCode::numeric_mismatch,
+            "stage full-KKT refinement state does not match the current factor");
+      }
+      if( EvaluationResult valid = request.kkt.validate_state(request.state);
+          !valid )
+      {
+         return std::unexpected(valid.error());
+      }
+      StructureFingerprintResult fingerprint =
+         request.kkt.structure_fingerprint();
+      if( !fingerprint )
+      {
+         return std::unexpected(fingerprint.error());
+      }
+      if( *fingerprint != layout_.kkt_fingerprint )
+      {
+         return RefinementFailure(
+            EvaluationErrorCode::structure_mismatch,
+            "stage full-KKT refinement structure does not match its factor");
+      }
+      if( !AllFinite(request.rhs) || !AllFinite(request.direction) )
+      {
+         return RefinementFailure(
+            EvaluationErrorCode::nonfinite_output,
+            "stage full-KKT refinement input is nonfinite");
+      }
+
+      CandidateFirstWorkStatistics callback_work;
+      const auto apply_operator = [&](std::span<const Number> input,
+                                      std::span<Number> output)
+      {
+         return request.kkt.apply_flat(request.state, input, output);
+      };
+      const auto apply_preconditioner = [&]([[maybe_unused]] Index iteration,
+                                             std::span<const Number> input,
+                                             std::span<Number> output)
+      {
+         CandidateFirstSolveRequest correction_request{
+            request.kkt,
+            request.state,
+            input,
+            0,
+            request.restoration_problem
+         };
+         if( EvaluationResult assembled = assembler_.assemble_stage_rhs(
+                correction_request, structured_rhs_);
+             !assembled )
+         {
+            return assembled;
+         }
+         if( EvaluationResult solved = solver_.solve_rhs(
+                structured_rhs_, structured_solution_);
+             !solved )
+         {
+            return solved;
+         }
+         PoisonDirection(full_direction_);
+         EvaluationValue<StageStructuredWork> reconstructed =
+            assembler_.reconstruct_stage_direction(
+               correction_request,
+               request.state.regularization,
+               structured_solution_,
+               full_direction_);
+         if( !reconstructed )
+         {
+            return EvaluationResult(std::unexpected(reconstructed.error()));
+         }
+         AddWork(callback_work, *reconstructed);
+         if( !AllFinite(full_direction_) )
+         {
+            return EvaluationResult(std::unexpected(EvaluationError{
+               EvaluationErrorCode::nonfinite_output,
+               "stage full-KKT preconditioner produced a nonfinite direction"
+            }));
+         }
+         std::ranges::copy(full_direction_, output.begin());
+         return EvaluationResult{};
+      };
+
+      EvaluationValue<FgmresResult> refined = full_kkt_fgmres_.solve(
+         apply_operator,
+         apply_preconditioner,
+         request.rhs,
+         request.direction);
+      if( !refined )
+      {
+         return std::unexpected(refined.error());
+      }
+      result.work = callback_work;
+      SaturatingAdd(
+         result.work.backsolves, refined->preconditioner_evaluations);
+      SaturatingAdd(
+         result.work.kkt_applications, refined->operator_evaluations);
+      SaturatingAdd(result.work.refinement_steps, refined->iterations);
+      SaturatingAddProduct(
+         result.work.derivative_product_requests,
+         refined->operator_evaluations,
+         3);
+      result.converged = refined->converged();
+      return result;
    }
 
    const StageStructuredLayout& layout() const noexcept
@@ -445,6 +612,13 @@ public:
    }
 
 private:
+   struct CurrentFactor
+   {
+      std::uint64_t numeric_revision = 0;
+      PrimalDualRegularization regularization{0., 0., 0., 0.};
+      bool restoration_problem = false;
+   };
+
    enum class RetryTarget
    {
       primal,
@@ -485,7 +659,15 @@ private:
           options_.maximum_regularization < options_.initial_primal_regularization ||
           options_.maximum_regularization < options_.initial_dual_regularization ||
           !std::isfinite(options_.refinement.relative_tolerance) ||
-          options_.refinement.relative_tolerance < 0. )
+          options_.refinement.relative_tolerance < 0. ||
+          full_kkt_fgmres_.dimension() != layout_.full_direction_dimension ||
+          options_.full_kkt_refinement.restart == 0 ||
+          !std::isfinite(options_.full_kkt_refinement.relative_tolerance) ||
+          options_.full_kkt_refinement.relative_tolerance < 0. ||
+          !std::isfinite(options_.full_kkt_refinement.absolute_tolerance) ||
+          options_.full_kkt_refinement.absolute_tolerance < 0. ||
+          !std::isfinite(options_.full_kkt_refinement.breakdown_tolerance) ||
+          !(options_.full_kkt_refinement.breakdown_tolerance > 0.) )
       {
          return "stage-structured retry/refinement options are invalid";
       }
@@ -507,7 +689,44 @@ private:
          std::isfinite(regularization.d) && regularization.d >= 0.;
    }
 
+   static bool SameRegularization(
+      PrimalDualRegularization left,
+      PrimalDualRegularization right
+   ) noexcept
+   {
+      return left.x == right.x && left.s == right.s &&
+         left.c == right.c && left.d == right.d;
+   }
+
+   static bool AllFinite(std::span<const Number> values) noexcept
+   {
+      return std::ranges::all_of(
+         values, [](Number value) { return std::isfinite(value); });
+   }
+
+   void PoisonDirection(std::span<Number> direction) const noexcept
+   {
+#ifndef NDEBUG
+      std::ranges::fill(
+         direction, std::numeric_limits<Number>::quiet_NaN());
+#else
+      if( !layout_.full_direction_overwrite_certified )
+      {
+         std::ranges::fill(
+            direction, std::numeric_limits<Number>::quiet_NaN());
+      }
+#endif
+   }
+
    static EvaluationValue<CandidateFirstSolveResult> Failure(
+      EvaluationErrorCode code,
+      std::string         message
+   )
+   {
+      return std::unexpected(EvaluationError{code, std::move(message)});
+   }
+
+   static EvaluationValue<CandidateFirstRefinementResult> RefinementFailure(
       EvaluationErrorCode code,
       std::string         message
    )
@@ -535,6 +754,19 @@ private:
       target = increment > std::numeric_limits<Index>::max() - target
          ? std::numeric_limits<Index>::max()
          : target + increment;
+   }
+
+   static void SaturatingAddProduct(
+      Index& target,
+      Index  factor,
+      Index  multiplier
+   ) noexcept
+   {
+      const Index increment = factor != 0 &&
+         multiplier > std::numeric_limits<Index>::max() / factor
+         ? std::numeric_limits<Index>::max()
+         : factor * multiplier;
+      SaturatingAdd(target, increment);
    }
 
    static bool CheckedAdd(Index left, Index right, Index& result) noexcept
@@ -672,7 +904,9 @@ private:
    std::vector<Number> structured_rhs_;
    std::vector<Number> structured_solution_;
    std::vector<Number> full_direction_;
+   FgmresSolver full_kkt_fgmres_;
    std::string configuration_error_;
+   std::optional<CurrentFactor> current_factor_;
 };
 
 template <StageStructuredAssembler Assembler>

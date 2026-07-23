@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -348,23 +349,31 @@ public:
 
       for( Index i = 0; i < dimensions_.z_lower; ++i )
       {
-         z_lower_result_[i] = state.slack_x_lower[i] * direction.z_lower[i] +
-            state.z_lower[i] * direction.x[layout_.primal_lower_bounds[i]];
+         z_lower_result_[i] = std::fma(
+            state.z_lower[i],
+            direction.x[layout_.primal_lower_bounds[i]],
+            state.slack_x_lower[i] * direction.z_lower[i]);
       }
       for( Index i = 0; i < dimensions_.z_upper; ++i )
       {
-         z_upper_result_[i] = state.slack_x_upper[i] * direction.z_upper[i] -
-            state.z_upper[i] * direction.x[layout_.primal_upper_bounds[i]];
+         z_upper_result_[i] = std::fma(
+            -state.z_upper[i],
+            direction.x[layout_.primal_upper_bounds[i]],
+            state.slack_x_upper[i] * direction.z_upper[i]);
       }
       for( Index i = 0; i < dimensions_.v_lower; ++i )
       {
-         v_lower_result_[i] = state.slack_s_lower[i] * direction.v_lower[i] +
-            state.v_lower[i] * direction.s[layout_.slack_lower_bounds[i]];
+         v_lower_result_[i] = std::fma(
+            state.v_lower[i],
+            direction.s[layout_.slack_lower_bounds[i]],
+            state.slack_s_lower[i] * direction.v_lower[i]);
       }
       for( Index i = 0; i < dimensions_.v_upper; ++i )
       {
-         v_upper_result_[i] = state.slack_s_upper[i] * direction.v_upper[i] -
-            state.v_upper[i] * direction.s[layout_.slack_upper_bounds[i]];
+         v_upper_result_[i] = std::fma(
+            -state.v_upper[i],
+            direction.s[layout_.slack_upper_bounds[i]],
+            state.slack_s_upper[i] * direction.v_upper[i]);
       }
 
       CopyResults(result);

@@ -871,6 +871,29 @@ void TestSparseBorderedFullDirection()
       "bordered independent inertia proof or retry accounting is wrong");
    CheckTrueResidual(kkt, state, *solved, kRhs);
 
+   PrimalDualState factor_state = state;
+   factor_state.regularization = solved->accepted_regularization;
+   std::array<Number, 23> perturbed;
+   std::ranges::copy(solved->direction, perturbed.begin());
+   perturbed[0] += .2;
+   perturbed[7] -= .1;
+   perturbed[16] += .05;
+   const auto refined = backend.refine({
+      kkt, factor_state, kRhs, perturbed, false
+   });
+   Check(
+      refined.has_value() && refined->supported && refined->converged &&
+         refined->work.factorizations == 0 &&
+         refined->work.backsolves > 0 &&
+         refined->work.kkt_applications > 0,
+      "full-KKT FGMRES did not reuse the bordered factor");
+   CheckTrueResidual(
+      kkt,
+      factor_state,
+      perturbed,
+      solved->accepted_regularization,
+      kRhs);
+
    std::array<Number, 23> second_rhs = kRhs;
    second_rhs[4] = -1.1;
    second_rhs[16] = .85;

@@ -62,6 +62,8 @@ EXTRA_DIST = \
   cxx23/tests/primal_dual_stage_kkt_assembler_test.cpp \
   cxx23/tests/primal_dual_bordered_stage_kkt_assembler_test.cpp \
   cxx23/tests/pdfullspace_fgmres_refinement_test.cpp \
+  cxx23/tests/numerical_primitives_test.cpp \
+  cxx23/tests/adversarial_nlp_test.cpp \
   cxx23/tests/stage_structured_candidate_backend_test.cpp \
   cxx23/tests/stage_structured_nlp_test.cpp
 

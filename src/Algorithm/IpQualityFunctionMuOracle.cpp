@@ -601,11 +601,11 @@ Number QualityFunctionMuOracle::CalculateQualityFunction(
                          tmp_slack_s_U_->Amax());
          break;
       case NM_NORM_2:
-         dual_inf = (1. - alpha_dual) * std::sqrt(std::pow(curr_grad_lag_x_nrm2_, 2) + std::pow(curr_grad_lag_s_nrm2_, 2));
-         primal_inf = (1. - alpha_primal) * std::sqrt(std::pow(curr_c_nrm2_, 2) + std::pow(curr_d_minus_s_nrm2_, 2));
-         compl_inf = std::sqrt(
-                        std::pow(tmp_slack_x_L_->Nrm2(), 2) + std::pow(tmp_slack_x_U_->Nrm2(), 2) + std::pow(tmp_slack_s_L_->Nrm2(), 2)
-                        + std::pow(tmp_slack_s_U_->Nrm2(), 2));
+         dual_inf = (1. - alpha_dual) * std::hypot(curr_grad_lag_x_nrm2_, curr_grad_lag_s_nrm2_);
+         primal_inf = (1. - alpha_primal) * std::hypot(curr_c_nrm2_, curr_d_minus_s_nrm2_);
+         compl_inf = std::hypot(
+                        std::hypot(tmp_slack_x_L_->Nrm2(), tmp_slack_x_U_->Nrm2()),
+                        std::hypot(tmp_slack_s_L_->Nrm2(), tmp_slack_s_U_->Nrm2()));
          dual_inf /= std::sqrt((Number) n_dual_);
          if( n_pri_ > 0 )
          {

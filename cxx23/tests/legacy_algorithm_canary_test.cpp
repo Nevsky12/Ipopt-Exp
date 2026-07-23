@@ -90,7 +90,8 @@ enum class CandidateScenario
    accepted,
    backend_failure_once,
    inertia_rejection_once,
-   residual_rejection_once
+   residual_rejection_once,
+   residual_refined_once
 };
 
 constexpr std::string_view CandidateScenarioName(
@@ -109,6 +110,8 @@ constexpr std::string_view CandidateScenarioName(
          return "inertia_rejection_once";
       case CandidateScenario::residual_rejection_once:
          return "residual_rejection_once";
+      case CandidateScenario::residual_refined_once:
+         return "residual_refined_once";
    }
    return "unknown";
 }
@@ -123,6 +126,9 @@ struct CandidateBackendCounters
    Cxx::Index failures_remaining = 0;
    Cxx::Index inertia_rejections_remaining = 0;
    Cxx::Index residual_rejections_remaining = 0;
+   Cxx::Index refinements_remaining = 0;
+   Cxx::Index refinement_requests = 0;
+   Cxx::Index completed_refinements = 0;
 };
 
 class DenseCandidateBackend
@@ -258,7 +264,49 @@ public:
          }
          direction[i] /= matrix[i * dimension + i];
       }
+      if( counters_->refinements_remaining > 0 )
+      {
+         --counters_->refinements_remaining;
+         exact_direction_ = direction;
+         exact_numeric_revision_ = request.state.numeric_revision;
+         direction[0] += .125;
+      }
       return Result(std::move(direction), request, true, dimension);
+   }
+
+   Cxx::EvaluationValue<Cxx::CandidateFirstRefinementResult> refine(
+      Cxx::CandidateFirstRefinementRequest request
+   )
+   {
+      ++counters_->refinement_requests;
+      if( exact_direction_.empty() )
+      {
+         return Cxx::CandidateFirstRefinementResult{};
+      }
+      if( request.direction.size() != exact_direction_.size() ||
+          request.rhs.size() != exact_direction_.size() ||
+          request.state.numeric_revision != exact_numeric_revision_ )
+      {
+         return std::unexpected(Cxx::EvaluationError{
+            Cxx::EvaluationErrorCode::numeric_mismatch,
+            "injected refinement does not match the saved direct factor"
+         });
+      }
+      std::ranges::copy(exact_direction_, request.direction.begin());
+      exact_direction_.clear();
+      ++counters_->completed_refinements;
+      return Cxx::CandidateFirstRefinementResult{
+         .work = {
+            .factorizations = 0,
+            .backsolves = 1,
+            .kkt_applications = 0,
+            .derivative_product_requests = 0,
+            .refinement_steps = 1,
+            .quality_improvements = 0
+         },
+         .supported = true,
+         .converged = true
+      };
    }
 
 private:
@@ -300,6 +348,8 @@ private:
    }
 
    std::shared_ptr<CandidateBackendCounters> counters_;
+   std::vector<Cxx::Number> exact_direction_;
+   std::uint64_t exact_numeric_revision_ = 0;
 };
 
 class CanaryTnlp final : public Stable::TNLP
@@ -598,6 +648,10 @@ void TestTreatment(
       {
          candidate_counters->residual_rejections_remaining = 1;
       }
+      if( candidate_scenario == CandidateScenario::residual_refined_once )
+      {
+         candidate_counters->refinements_remaining = 1;
+      }
       canary_options.candidate_first_backend = Cxx::MakeCandidateFirstBackend(
          DenseCandidateBackend(candidate_counters));
    }
@@ -689,7 +743,8 @@ void TestTreatment(
          "candidate-first factorization accounting is inconsistent");
       Check(
          statistics.candidate_first_backsolves ==
-            candidate_counters->completed_solves,
+            candidate_counters->completed_solves +
+               candidate_counters->completed_refinements,
          "candidate-first backsolve accounting is inconsistent");
       Check(
          statistics.candidate_first_kkt_applications ==
@@ -707,7 +762,8 @@ void TestTreatment(
       Check(
          candidate_counters->requests == statistics.candidate_first_requests,
          "AnyAny backend request accounting is inconsistent");
-      if( candidate_scenario == CandidateScenario::accepted )
+      if( candidate_scenario == CandidateScenario::accepted ||
+          candidate_scenario == CandidateScenario::residual_refined_once )
       {
          Check(
             statistics.candidate_first_fallbacks == 0,
@@ -755,6 +811,16 @@ void TestTreatment(
          Check(
             statistics.candidate_first_failures == 0,
             "residual rejection was misclassified as a backend failure");
+      }
+      if( candidate_scenario == CandidateScenario::residual_refined_once )
+      {
+         Check(
+            statistics.candidate_first_full_kkt_refinement_requests == 1 &&
+               statistics.candidate_first_full_kkt_refinement_converged == 1 &&
+               statistics.candidate_first_full_kkt_refinement_unsupported == 0 &&
+               statistics.candidate_first_refinement_steps == 1 &&
+               candidate_counters->refinement_requests == 1,
+            "bad direct step was not repaired through the adaptive refinement seam");
       }
    }
    else
@@ -926,6 +992,9 @@ int main()
       TestTreatment(
          "make_parameter", false, false, false, false,
          CandidateScenario::residual_rejection_once);
+      TestTreatment(
+         "make_parameter", false, false, false, false,
+         CandidateScenario::residual_refined_once);
    }
    catch( const std::exception& exception )
    {

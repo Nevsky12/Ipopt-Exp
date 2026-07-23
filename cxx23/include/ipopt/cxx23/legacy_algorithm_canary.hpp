@@ -115,6 +115,9 @@ struct LegacyAlgorithmCanaryStatistics
    Index candidate_first_derivative_product_requests = 0;
    Index candidate_first_validation_kkt_applications = 0;
    Index candidate_first_validation_derivative_product_requests = 0;
+   Index candidate_first_full_kkt_refinement_requests = 0;
+   Index candidate_first_full_kkt_refinement_converged = 0;
+   Index candidate_first_full_kkt_refinement_unsupported = 0;
    Index candidate_first_refinement_steps = 0;
    Index candidate_first_quality_improvements = 0;
    Index restoration_candidate_first_requests = 0;
@@ -714,6 +717,19 @@ private:
          work.quality_improvements;
    }
 
+   static void AccumulateCandidateWork(
+      CandidateFirstWorkStatistics&       target,
+      const CandidateFirstWorkStatistics& source
+   ) noexcept
+   {
+      target.factorizations += source.factorizations;
+      target.backsolves += source.backsolves;
+      target.kkt_applications += source.kkt_applications;
+      target.derivative_product_requests += source.derivative_product_requests;
+      target.refinement_steps += source.refinement_steps;
+      target.quality_improvements += source.quality_improvements;
+   }
+
    void RecordCandidateFallback(
       CandidateFallbackCause cause,
       std::string_view        reason
@@ -1215,6 +1231,69 @@ private:
       if( !applied )
       {
          return std::unexpected(applied.error());
+      }
+
+      if( reference_result == nullptr )
+      {
+         const Number initial_relative_residual =
+            legacy_algorithm_canary_detail::RelativeInfinityError(
+               reconstructed_rhs_workspace_, *flat_rhs);
+         if( !converged || initial_relative_residual >
+                options_.residual_relative_tolerance )
+         {
+            ++statistics_.candidate_first_full_kkt_refinement_requests;
+            CandidateFirstRefinementRequest refinement_request{
+               kkt,
+               state,
+               *flat_rhs,
+               unscaled_solution,
+               restoration_problem_
+            };
+            EvaluationValue<CandidateFirstRefinementResult> refined =
+               options_.candidate_first_backend->candidate_first_refine(
+                  refinement_request);
+            if( !refined )
+            {
+               return std::unexpected(refined.error());
+            }
+            if( refined->supported )
+            {
+               if( refined->work.factorizations != 0 )
+               {
+                  return std::unexpected(
+                     legacy_algorithm_canary_detail::CanaryError(
+                        "full-KKT refinement refactorized instead of reusing the current factor"));
+               }
+               AddCandidateWork(refined->work);
+               AccumulateCandidateWork(work, refined->work);
+               converged = refined->converged;
+               if( converged )
+               {
+                  ++statistics_.candidate_first_full_kkt_refinement_converged;
+               }
+               if( !std::ranges::all_of(
+                      unscaled_solution,
+                      [](Number value) { return std::isfinite(value); }) )
+               {
+                  return std::unexpected(EvaluationError{
+                     EvaluationErrorCode::nonfinite_output,
+                     "full-KKT refinement returned a nonfinite direction"
+                  });
+               }
+               ++statistics_.candidate_first_validation_kkt_applications;
+               statistics_.candidate_first_validation_derivative_product_requests += 3;
+               applied = kkt.apply_flat(
+                  state, unscaled_solution, reconstructed_rhs_workspace_);
+               if( !applied )
+               {
+                  return std::unexpected(applied.error());
+               }
+            }
+            else
+            {
+               ++statistics_.candidate_first_full_kkt_refinement_unsupported;
+            }
+         }
       }
 
       const legacy_algorithm_canary_detail::ScaledResidualMeasurement

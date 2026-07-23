@@ -636,77 +636,7 @@ public:
             "bordered complementarity diagonal is nonfinite");
       }
 
-      for( Index structured = 0;
-           structured < structured_to_full_.size();
-           ++structured )
-      {
-         rhs[structured] = request.rhs[structured_to_full_[structured]];
-      }
-      const Index stage_dimension = structured_to_full_.size();
-      for( Index global = 0; global < global_to_full_.size(); ++global )
-      {
-         rhs[stage_dimension + global] =
-            request.rhs[global_to_full_[global]];
-      }
-      if( options_.normalize_next_state_jacobians )
-      {
-         for( Index transition = 0;
-              transition + 1 < topology.stages().size();
-              ++transition )
-         {
-            const Index next_states = topology.stages()[transition + 1].states;
-            const Index dynamics_begin = topology.dynamics_offsets()[transition];
-            const Number* transform = dynamics_transforms_.data() +
-               topology.dynamics_next_state_jacobian_offsets()[transition];
-            for( Index normalized = 0;
-                 normalized < next_states;
-                 ++normalized )
-            {
-               Number value = 0.;
-               for( Index original = 0; original < next_states; ++original )
-               {
-                  const Index generic_original = topology.ordering().dynamics[
-                     dynamics_begin + original];
-                  const Index full_original = structured_to_full_[
-                     constraint_structured_positions_[generic_original]];
-                  value += transform[normalized * next_states + original] *
-                     request.rhs[full_original];
-               }
-               const Index generic_normalized = topology.ordering().dynamics[
-                  dynamics_begin + normalized];
-               rhs[constraint_structured_positions_[generic_normalized]] = value;
-            }
-         }
-      }
-      if( !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(z_lower_offset_, dimensions_.z_lower),
-             request.state.slack_x_lower,
-             kkt_layout_.primal_lower_bounds,
-             primal_structured_positions_,
-             1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(z_upper_offset_, dimensions_.z_upper),
-             request.state.slack_x_upper,
-             kkt_layout_.primal_upper_bounds,
-             primal_structured_positions_,
-             -1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(v_lower_offset_, dimensions_.v_lower),
-             request.state.slack_s_lower,
-             kkt_layout_.slack_lower_bounds,
-             slack_structured_positions_,
-             1.) ||
-          !AddComplementarityRightHandSide(
-             rhs,
-             request.rhs.subspan(v_upper_offset_, dimensions_.v_upper),
-             request.state.slack_s_upper,
-             kkt_layout_.slack_upper_bounds,
-             slack_structured_positions_,
-             -1.) ||
-          !AllFinite(rhs) )
+      if( !WriteStructuredRightHandSide(request, rhs) )
       {
          return AssemblyFailure(
             EvaluationErrorCode::nonfinite_output,
@@ -725,6 +655,65 @@ public:
          inertia_symmetric);
       validated_complementarity_revision_ = request.state.numeric_revision;
       return report;
+   }
+
+   /** Condense a new full-KKT RHS without rebuilding the bordered matrix. */
+   EvaluationResult assemble_bordered_stage_rhs(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   )
+   {
+      if( !configuration_error_.empty() )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            configuration_error_
+         });
+      }
+      if( request.restoration_problem != options_.restoration_problem )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::invalid_layout,
+            "bordered stage RHS role does not match explicit metadata"
+         });
+      }
+      if( rhs.size() != layout_.inertia_dimension ||
+          request.rhs.size() != layout_.full_direction_dimension )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::dimension_mismatch,
+            "bordered stage RHS assembly has the wrong dimension"
+         });
+      }
+      if( request.state.numeric_revision == 0 ||
+          request.state.numeric_revision != cached_numeric_revision_ )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::numeric_mismatch,
+            "bordered stage RHS does not match the current numeric factor"
+         });
+      }
+      if( EvaluationResult valid = request.kkt.validate_state(request.state);
+          !valid )
+      {
+         return valid;
+      }
+      if( !ValidComplementarityState(request.state) )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::nonfinite_output,
+            "bordered stage RHS has invalid complementarity state"
+         });
+      }
+      if( !WriteStructuredRightHandSide(request, rhs) )
+      {
+         return std::unexpected(EvaluationError{
+            EvaluationErrorCode::nonfinite_output,
+            "bordered reduced right-hand side is nonfinite"
+         });
+      }
+      validated_complementarity_revision_ = request.state.numeric_revision;
+      return {};
    }
 
    EvaluationValue<StageStructuredWork>
@@ -868,6 +857,86 @@ public:
    }
 
 private:
+   bool WriteStructuredRightHandSide(
+      CandidateFirstSolveRequest request,
+      std::span<Number>          rhs
+   ) const noexcept
+   {
+      for( Index structured = 0;
+           structured < structured_to_full_.size();
+           ++structured )
+      {
+         rhs[structured] = request.rhs[structured_to_full_[structured]];
+      }
+      const Index stage_dimension = structured_to_full_.size();
+      for( Index global = 0; global < global_to_full_.size(); ++global )
+      {
+         rhs[stage_dimension + global] =
+            request.rhs[global_to_full_[global]];
+      }
+
+      const BorderedStageNlpTopology& topology = derivatives_.topology();
+      if( options_.normalize_next_state_jacobians )
+      {
+         for( Index transition = 0;
+              transition + 1 < topology.stages().size();
+              ++transition )
+         {
+            const Index next_states = topology.stages()[transition + 1].states;
+            const Index dynamics_begin = topology.dynamics_offsets()[transition];
+            const Number* transform = dynamics_transforms_.data() +
+               topology.dynamics_next_state_jacobian_offsets()[transition];
+            for( Index normalized = 0;
+                 normalized < next_states;
+                 ++normalized )
+            {
+               Number value = 0.;
+               for( Index original = 0; original < next_states; ++original )
+               {
+                  const Index generic_original = topology.ordering().dynamics[
+                     dynamics_begin + original];
+                  const Index full_original = structured_to_full_[
+                     constraint_structured_positions_[generic_original]];
+                  value += transform[normalized * next_states + original] *
+                     request.rhs[full_original];
+               }
+               const Index generic_normalized = topology.ordering().dynamics[
+                  dynamics_begin + normalized];
+               rhs[constraint_structured_positions_[generic_normalized]] = value;
+            }
+         }
+      }
+      return AddComplementarityRightHandSide(
+                rhs,
+                request.rhs.subspan(z_lower_offset_, dimensions_.z_lower),
+                request.state.slack_x_lower,
+                kkt_layout_.primal_lower_bounds,
+                primal_structured_positions_,
+                1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(z_upper_offset_, dimensions_.z_upper),
+            request.state.slack_x_upper,
+            kkt_layout_.primal_upper_bounds,
+            primal_structured_positions_,
+            -1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(v_lower_offset_, dimensions_.v_lower),
+            request.state.slack_s_lower,
+            kkt_layout_.slack_lower_bounds,
+            slack_structured_positions_,
+            1.) &&
+         AddComplementarityRightHandSide(
+            rhs,
+            request.rhs.subspan(v_upper_offset_, dimensions_.v_upper),
+            request.state.slack_s_upper,
+            kkt_layout_.slack_upper_bounds,
+            slack_structured_positions_,
+            -1.) &&
+         AllFinite(rhs);
+   }
+
    template <Index Extent>
    static Number FixedDotProduct(
       const Number* left,
@@ -1159,8 +1228,10 @@ private:
       for( Index bound = 0; bound < bounds.size(); ++bound )
       {
          complementarity_direction[bound] =
-            (rhs[bound] + primal_sign * multipliers[bound] *
-               primal_direction[bounds[bound]]) /
+            std::fma(
+               primal_sign * multipliers[bound],
+               primal_direction[bounds[bound]],
+               rhs[bound]) /
             slacks[bound];
       }
    }
